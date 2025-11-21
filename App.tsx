@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { ModuleType, Task, Deal, DocumentItem, Article, SystemLog, TaskStatus, Company, Contact, CrmActivity, User } from './types';
-import { INITIAL_TASKS, INITIAL_DEALS, INITIAL_DOCS, INITIAL_KB, INITIAL_LOGS, INITIAL_COMPANIES, INITIAL_CONTACTS, INITIAL_ACTIVITIES } from './constants';
+import { ModuleType, Task, Deal, DocumentItem, Article, SystemLog, TaskStatus, Company, Contact, CrmActivity, User, TeamMember } from './types';
+import { INITIAL_TASKS, INITIAL_DEALS, INITIAL_DOCS, INITIAL_KB, INITIAL_LOGS, INITIAL_COMPANIES, INITIAL_CONTACTS, INITIAL_ACTIVITIES, INITIAL_TEAM } from './constants';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import CRM from './components/CRM';
@@ -14,15 +13,25 @@ import Login from './components/Login';
 import MobileNav from './components/MobileNav';
 import { Bell, Search, Sun, Moon, Menu, X, User as UserIcon, Settings as SettingsIcon, LogOut, RefreshCw } from 'lucide-react';
 
-const CURRENT_USER: User = { id: 'u1', name: 'Админ', email: 'admin@ec.hub', role: 'ADMIN', avatar: '' };
-
 const App: React.FC = () => {
   // Auth State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User>({
+      id: 'u1', 
+      name: 'Madi Seitzhapbar', 
+      email: 'madi@engineering-centre.com', 
+      role: 'ADMIN', 
+      avatar: '' 
+  });
   
-  // App State
+  // App Settings State
   const [activeModule, setActiveModule] = useState<ModuleType>(ModuleType.HOME);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [appSettings, setAppSettings] = useState({
+      fontSize: 'medium' as 'small' | 'medium' | 'large',
+      fontFamily: 'sans' as 'sans' | 'serif'
+  });
+
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -31,9 +40,8 @@ const App: React.FC = () => {
      ModuleType.HOME, ModuleType.PROJECTS, ModuleType.CRM, ModuleType.CALENDAR
   ]);
 
-  // Data State (Database Simulation)
+  // Data State
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
-  // Initialize projects list from tasks
   const [projects, setProjects] = useState<string[]>(() => Array.from(new Set(INITIAL_TASKS.map(t => t.project))).sort());
   
   const [deals, setDeals] = useState<Deal[]>(INITIAL_DEALS);
@@ -43,6 +51,7 @@ const App: React.FC = () => {
   const [docs, setDocs] = useState<DocumentItem[]>(INITIAL_DOCS);
   const [articles, setArticles] = useState<Article[]>(INITIAL_KB);
   const [logs, setLogs] = useState<SystemLog[]>(INITIAL_LOGS);
+  const [team, setTeam] = useState<TeamMember[]>(INITIAL_TEAM);
 
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -77,11 +86,36 @@ const App: React.FC = () => {
     const newLog: SystemLog = {
       id: `l${Date.now()}`,
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      user: CURRENT_USER.name,
+      user: currentUser.name,
       action,
       module
     };
     setLogs(prev => [newLog, ...prev]);
+  };
+
+  const handleUpdateProfile = (updatedData: Partial<User>) => {
+      setCurrentUser(prev => ({...prev, ...updatedData}));
+      addLog('Обновил данные профиля', 'SETTINGS');
+  };
+
+  const handleUpdateAppSettings = (newSettings: any) => {
+      setAppSettings(prev => ({...prev, ...newSettings}));
+  };
+
+  // --- Team Handlers ---
+  const handleAddTeamMember = (member: TeamMember) => {
+      setTeam(prev => [...prev, member]);
+      addLog(`Добавлен сотрудник: ${member.name}`, 'SETTINGS');
+  };
+
+  const handleUpdateTeamMember = (member: TeamMember) => {
+      setTeam(prev => prev.map(m => m.id === member.id ? member : m));
+      addLog(`Обновлен сотрудник: ${member.name}`, 'SETTINGS');
+  };
+
+  const handleDeleteTeamMember = (id: string) => {
+      setTeam(prev => prev.filter(m => m.id !== id));
+      addLog(`Удален сотрудник: ${id}`, 'SETTINGS');
   };
 
   // --- Task & Project Handlers ---
@@ -98,7 +132,6 @@ const App: React.FC = () => {
   };
   const handleAddTask = (newTask: Task) => {
     setTasks(prev => [...prev, newTask]);
-    // Ensure project exists in list if it's new
     if (!projects.includes(newTask.project)) {
         setProjects(prev => [...prev, newTask.project].sort());
     }
@@ -109,9 +142,7 @@ const App: React.FC = () => {
     addLog(`Удалена задача ${taskId}`, 'PROJECTS');
   };
 
-  // Special handler to open task edit from Calendar
   const handleEditTaskRequest = (task: Task) => {
-    // Switch to projects view
     setActiveModule(ModuleType.PROJECTS);
     setTimeout(() => {
         if ((window as any).triggerTaskEdit) {
@@ -162,7 +193,7 @@ const App: React.FC = () => {
 
   // --- Document Handlers ---
   const handleAddDocument = (doc: DocumentItem) => {
-     setDocs(prev => [...prev, { ...doc, author: CURRENT_USER.name, authorId: CURRENT_USER.id }]);
+     setDocs(prev => [...prev, { ...doc, author: currentUser.name, authorId: currentUser.id }]);
      addLog(`Загружен документ: ${doc.name}`, 'DOCUMENTS');
   };
 
@@ -204,31 +235,41 @@ const App: React.FC = () => {
            onDeleteTask={handleDeleteTask} 
            onAddProject={handleAddProject}
            searchQuery={searchQuery} 
-           currentUser={CURRENT_USER} 
+           currentUser={currentUser} 
         />;
       case ModuleType.CALENDAR:
         return <Calendar tasks={tasks} onAddTask={handleAddTask} onEditTask={handleEditTaskRequest} />;
       case ModuleType.DOCUMENTS:
-        return <Documents docs={docs} onAddDocument={handleAddDocument} onDeleteDocument={handleDeleteDocument} searchQuery={searchQuery} currentUser={CURRENT_USER} />;
+        return <Documents docs={docs} onAddDocument={handleAddDocument} onDeleteDocument={handleDeleteDocument} searchQuery={searchQuery} currentUser={currentUser} />;
       case ModuleType.KNOWLEDGE:
-        return <KnowledgeBase articles={articles} onAddArticle={handleAddArticle} searchQuery={searchQuery} currentUser={CURRENT_USER} />;
+        return <KnowledgeBase articles={articles} onAddArticle={handleAddArticle} searchQuery={searchQuery} currentUser={currentUser} />;
       case ModuleType.SETTINGS:
         return <Settings 
-           currentUser={CURRENT_USER} 
+           currentUser={currentUser} 
+           onUpdateProfile={handleUpdateProfile}
            onLogout={handleLogout} 
            isDarkMode={isDarkMode} 
            toggleTheme={() => setIsDarkMode(!isDarkMode)} 
            logs={logs} 
            mobileMenuConfig={mobileMenuConfig}
            onUpdateMobileConfig={setMobileMenuConfig}
+           appSettings={appSettings}
+           onUpdateAppSettings={handleUpdateAppSettings}
+           team={team}
+           onAddTeamMember={handleAddTeamMember}
+           onUpdateTeamMember={handleUpdateTeamMember}
+           onDeleteTeamMember={handleDeleteTeamMember}
         />;
       default:
         return <div>Модуль не найден</div>;
     }
   };
 
+  const fontClass = appSettings.fontFamily === 'serif' ? 'font-serif' : 'font-sans';
+  const sizeClass = appSettings.fontSize === 'small' ? 'text-sm' : appSettings.fontSize === 'large' ? 'text-lg' : 'text-base';
+
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 font-sans overflow-hidden">
+    <div className={`flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden ${fontClass} ${sizeClass} transition-all duration-200`}>
       
       {/* Sidebar (Desktop Only) */}
       <div className="hidden md:block">
@@ -284,11 +325,11 @@ const App: React.FC = () => {
                  className="flex items-center gap-3 pl-2 md:pl-4 focus:outline-none"
               >
                 <div className="text-right hidden md:block">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{CURRENT_USER.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Главный инженер</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{currentUser.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Руководитель проектов</p>
                 </div>
                 <div className="w-9 h-9 rounded-full bg-primary-500 flex items-center justify-center text-gray-900 font-bold shadow-md border-2 border-primary-400">
-                  {CURRENT_USER.name.charAt(0)}
+                  {currentUser.name.charAt(0)}
                 </div>
               </button>
 
@@ -296,16 +337,16 @@ const App: React.FC = () => {
               {isUserMenuOpen && (
                 <div className="absolute right-0 top-12 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 animate-fade-in z-50">
                   <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 md:hidden">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{CURRENT_USER.name}</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{currentUser.name}</p>
                   </div>
-                  <button onClick={() => { setActiveModule(ModuleType.SETTINGS); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
+                  <button onClick={() => { setActiveModule(ModuleType.SETTINGS); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                     <SettingsIcon className="w-4 h-4" /> Настройки
                   </button>
-                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
+                  <button className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                     <RefreshCw className="w-4 h-4" /> Сменить аккаунт
                   </button>
                   <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
-                  <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2">
+                  <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2">
                     <LogOut className="w-4 h-4" /> Выйти
                   </button>
                 </div>

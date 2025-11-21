@@ -1,4 +1,3 @@
-
 export enum ModuleType {
   HOME = 'HOME',
   CRM = 'CRM',
@@ -32,17 +31,28 @@ export interface User {
   role: 'ADMIN' | 'USER';
 }
 
+// New Interface for Team Management
+export interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+  department: string;
+  avatar?: string;
+  status: 'ACTIVE' | 'INVITED' | 'DISABLED';
+}
+
 export interface Task {
   id: string;
   title: string;
   description: string;
   assignee: string;
-  observer?: string; // New field
+  observer?: string;
   dueDate: string;
   status: TaskStatus;
   priority: 'Высокий' | 'Средний' | 'Низкий';
   project: string;
-  parentId?: string; // For subtasks
+  parentId?: string;
 }
 
 export interface Deal {
@@ -55,14 +65,12 @@ export interface Deal {
   expectedClose: string;
 }
 
-// New CRM Entities
 export interface Company {
   id: string;
   name: string;
-  industry: string; // Used as description or category
+  industry: string;
   phone: string;
   email: string;
-  // New fields
   inn?: string;
   contactPerson?: string;
   extraPhone?: string;
@@ -77,8 +85,7 @@ export interface Contact {
   phone: string;
   email: string;
   position: string;
-  // New fields
-  organization?: string; // Text field if companyId not linked
+  organization?: string;
   extraPhone?: string;
   address?: string;
 }
@@ -89,13 +96,13 @@ export interface CrmActivity {
   subject: string;
   date: string;
   status: 'Запланировано' | 'Выполнено';
-  relatedEntityId: string; // Deal or Contact ID
+  relatedEntityId: string;
 }
 
 export interface CalendarEvent {
   id: string;
   title: string;
-  start: string; // ISO Date string
+  start: string;
   type: 'Встреча' | 'Задача';
   description?: string;
 }
@@ -106,10 +113,10 @@ export interface DocumentItem {
   type: 'PDF' | 'DWG' | 'DOCX' | 'XLSX';
   size: string;
   updatedAt: string;
-  author: string; // Name of uploader
-  authorId?: string; // ID for permission check
-  source?: string; // "CRM: Deal Name" or "Project: Name"
-  linkedEntityId?: string; // ID to open on click
+  author: string;
+  authorId?: string;
+  source?: string;
+  linkedEntityId?: string;
 }
 
 export interface Article {

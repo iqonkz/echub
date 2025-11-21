@@ -143,43 +143,11 @@ const CRM: React.FC<CRMProps> = ({
       };
       isEdit ? onUpdateContact(contactData) : onAddContact(contactData);
     } else if (activeTab === 'ACTIVITIES') {
-        // Dummy implementation for new activity since props for add/update are not fully wired in parent for this tab in previous prompt
-        // Assuming basic console log or local update if we had handler
         console.log("Activity Saved", formData);
     }
     setIsModalOpen(false);
     setFormData({});
     setEditingItem(null);
-  };
-
-  const handleInlineAdd = () => {
-     const id = Date.now().toString();
-     if (activeTab === 'COMPANIES') {
-        if (!inlineData.name) return;
-        onAddCompany({
-            id: `c${id}`,
-            name: inlineData.name,
-            industry: inlineData.industry || '',
-            phone: inlineData.phone || '',
-            email: inlineData.email || '',
-            website: inlineData.website || '',
-            inn: inlineData.inn || '',
-            address: inlineData.address || ''
-        });
-     } else if (activeTab === 'CONTACTS') {
-        if (!inlineData.name) return;
-        onAddContact({
-            id: `ct${id}`,
-            name: inlineData.name,
-            companyId: '',
-            organization: inlineData.organization || '',
-            phone: inlineData.phone || '',
-            email: inlineData.email || '',
-            position: inlineData.position || '',
-            address: inlineData.address || ''
-        });
-     }
-     setInlineData({});
   };
 
   const moveDealStage = (deal: Deal, direction: 'next' | 'prev') => {
@@ -230,8 +198,8 @@ const CRM: React.FC<CRMProps> = ({
                 <p className="text-xs text-primary-600 dark:text-primary-400 font-medium mb-3">{deal.clientName}</p>
                 <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
                   <div className="flex items-center gap-2">
-                    <DollarSign className="w-3 h-3" />
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">{(deal.value).toLocaleString()} ₽</span>
+                    <span className="w-3 h-3 font-bold">₸</span>
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">{(deal.value).toLocaleString()}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="w-3 h-3" />
@@ -246,7 +214,7 @@ const CRM: React.FC<CRMProps> = ({
             ))}
           </div>
           <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-b-xl text-xs text-center text-gray-500 dark:text-gray-400">
-            Сумма: {(filteredDeals.filter(d => d.stage === stage).reduce((sum, d) => sum + d.value, 0)).toLocaleString()} ₽
+            Сумма: ₸{(filteredDeals.filter(d => d.stage === stage).reduce((sum, d) => sum + d.value, 0)).toLocaleString()}
           </div>
         </div>
       ))}
@@ -325,7 +293,7 @@ const CRM: React.FC<CRMProps> = ({
                      activeTab === 'DEALS' ? item.clientName : item.type}
                   </td>
                   <td className="px-6 py-4">
-                     {activeTab === 'DEALS' ? `${item.value.toLocaleString()} ₽` :
+                     {activeTab === 'DEALS' ? `₸${item.value.toLocaleString()}` :
                       activeTab === 'CONTACTS' ? item.organization :
                       activeTab === 'COMPANIES' ? item.phone : item.date}
                   </td>

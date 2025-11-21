@@ -1,4 +1,4 @@
-import { Task, TaskStatus, Deal, DealStage, DocumentItem, Article, SystemLog, Company, Contact, CrmActivity } from './types';
+import { Task, TaskStatus, Deal, DealStage, DocumentItem, Article, SystemLog, Company, Contact, CrmActivity, TeamMember } from './types';
 
 export const INITIAL_TASKS: Task[] = [
   { id: 't1', title: 'Схемы ОВК (HVAC)', description: 'Доработать схемы вентиляции для ТЦ Риверсайд.', assignee: 'Алексей М.', observer: 'Админ', dueDate: '2023-11-15', status: TaskStatus.IN_PROGRESS, priority: 'Высокий', project: 'ТЦ Риверсайд' },
@@ -40,6 +40,13 @@ export const INITIAL_KB: Article[] = [
   { id: 'kb2', title: 'Процесс онбординга', category: 'HR', content: 'Новые сотрудники должны пройти инструктаж по ТБ в течение 3 дней...', updatedAt: '2023-10-20', type: 'WORK', author: 'Иван Д.', authorId: 'u4' },
   { id: 'kb3', title: 'Доступ к VPN', category: 'IT', content: 'Для подключения к защищенному серверу используйте клиент Cisco...', updatedAt: '2023-08-05', type: 'WORK', author: 'Админ', authorId: 'u1' },
   { id: 'kb4', title: 'Список книг', category: 'Развитие', content: 'Список рекомендованной литературы...', updatedAt: '2023-11-01', type: 'PERSONAL', author: 'Админ', authorId: 'u1' },
+];
+
+export const INITIAL_TEAM: TeamMember[] = [
+  { id: 'u1', name: 'Madi Seitzhapbar', email: 'madi@engineering-centre.com', role: 'ADMIN', department: 'Управление', status: 'ACTIVE' },
+  { id: 'u2', name: 'Алексей М.', email: 'alex@engineering-centre.com', role: 'MANAGER', department: 'Инженерия', status: 'ACTIVE' },
+  { id: 'u3', name: 'Светлана К.', email: 'svetlana@engineering-centre.com', role: 'EMPLOYEE', department: 'Проектирование', status: 'ACTIVE' },
+  { id: 'u4', name: 'Иван Д.', email: 'ivan@engineering-centre.com', role: 'EMPLOYEE', department: 'HR', status: 'INVITED' },
 ];
 
 export const INITIAL_LOGS: SystemLog[] = [

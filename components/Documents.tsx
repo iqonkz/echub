@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { DocumentItem, User } from '../types';
-import { FileText, Download, HardDrive, File, Image, Trash2, ExternalLink, Info, Upload, X } from 'lucide-react';
+import { FileText, Download, HardDrive, File, Image, Trash2, Info, Upload, X } from 'lucide-react';
 
 interface DocumentsProps {
   docs: DocumentItem[];
@@ -45,8 +45,11 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
       setNewFile({ name: '', source: '' });
   };
 
+  // Permission Check: Only Admin or the Author can delete a file
   const canDelete = (doc: DocumentItem) => {
-      return currentUser.role === 'ADMIN' || doc.authorId === currentUser.id;
+      const isAdmin = currentUser.role === 'ADMIN';
+      const isAuthor = doc.authorId === currentUser.id;
+      return isAdmin || isAuthor;
   };
 
   return (

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Task, Deal, DealStage, TaskStatus, ModuleType } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -10,7 +9,7 @@ interface DashboardProps {
   onNavigate: (module: ModuleType) => void;
 }
 
-const COLORS = ['#eab308', '#22c55e', '#f59e0b', '#ef4444']; // Updated to yellow main
+const COLORS = ['#eab308', '#22c55e', '#f59e0b', '#ef4444']; 
 
 const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, onNavigate }) => {
   // Calculate metrics
@@ -87,14 +86,14 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, onNavigate }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           title="Закрытая выручка" 
-          value={`₽${(totalRevenue / 1000000).toFixed(1)}М`} 
+          value={`₸${(totalRevenue / 1000000).toFixed(1)}М`} 
           icon={DollarSign} 
           color="bg-green-600" 
           subtext="+12% к прошлому месяцу"
         />
         <StatCard 
           title="В воронке" 
-          value={`₽${(potentialRevenue / 1000000).toFixed(1)}М`} 
+          value={`₸${(potentialRevenue / 1000000).toFixed(1)}М`} 
           icon={Clock} 
           color="bg-yellow-600" 
           subtext={`${deals.length} активных сделок`}

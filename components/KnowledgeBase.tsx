@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Article } from '../types';
-import { BookOpen, ChevronRight, Plus, X, Trash2 } from 'lucide-react';
+import { BookOpen, ChevronRight, Plus, X, Trash2, MoreVertical, Pencil } from 'lucide-react';
 
 interface KBProps {
   articles: Article[];
@@ -16,6 +16,19 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
   const [activeTab, setActiveTab] = useState<KbTab>('WORK');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newArticle, setNewArticle] = useState<{title: string, category: string, content: string}>({ title: '', category: '', content: '' });
+  
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: any) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const filteredArticles = articles.filter(a => 
     a.type === activeTab &&
@@ -40,9 +53,6 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
       setNewArticle({ title: '', category: '', content: '' });
   };
 
-  // Permission Logic
-  // Work: Creator can delete.
-  // Personal: Creator can edit/delete.
   const canDelete = (article: Article) => {
       return article.authorId === currentUser?.id || currentUser?.role === 'ADMIN';
   };
@@ -105,12 +115,30 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
         <div className={`flex-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 md:p-8 overflow-y-auto ${selectedArticle ? 'block' : 'hidden md:block'}`}>
            {selectedArticle ? (
              <article className="prose dark:prose-invert max-w-none">
-               <div className="flex justify-between items-start mb-4">
+               <div className="flex justify-between items-start mb-4 relative">
                    <button onClick={() => setSelectedArticle(null)} className="md:hidden mb-4 text-sm text-primary-600 flex items-center gap-1">
                        &larr; Назад к списку
                    </button>
+                   
                    {canDelete(selectedArticle) && (
-                       <button className="text-gray-400 hover:text-red-600 p-2"><Trash2 className="w-5 h-5" /></button>
+                       <div className="relative ml-auto">
+                           <button 
+                             onClick={() => setOpenMenuId(openMenuId === selectedArticle.id ? null : selectedArticle.id)}
+                             className="p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                           >
+                               <MoreVertical className="w-5 h-5" />
+                           </button>
+                           {openMenuId === selectedArticle.id && (
+                               <div ref={menuRef} className="absolute right-0 top-10 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20 py-1 animate-fade-in">
+                                   <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                                       <Pencil className="w-4 h-4" /> Редактировать
+                                   </button>
+                                   <button className="w-full text-left px-4 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2">
+                                       <Trash2 className="w-4 h-4" /> Удалить
+                                   </button>
+                               </div>
+                           )}
+                       </div>
                    )}
                </div>
                
