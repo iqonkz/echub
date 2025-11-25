@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ModuleType, Task, Deal, DocumentItem, Article, SystemLog, TaskStatus, Company, Contact, CrmActivity, User, TeamMember } from './types';
-import { INITIAL_TASKS, INITIAL_DEALS, INITIAL_DOCS, INITIAL_KB, INITIAL_LOGS, INITIAL_COMPANIES, INITIAL_CONTACTS, INITIAL_ACTIVITIES, INITIAL_TEAM } from './constants';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import CRM from './components/CRM';
@@ -11,16 +10,34 @@ import KnowledgeBase from './components/KnowledgeBase';
 import Settings from './components/Settings';
 import Login from './components/Login';
 import MobileNav from './components/MobileNav';
-import { Bell, Search, Sun, Moon, Menu, X, User as UserIcon, Settings as SettingsIcon, LogOut, RefreshCw } from 'lucide-react';
+import { Search, Sun, Moon, User as UserIcon, Settings as SettingsIcon, LogOut, RefreshCw, Loader2 } from 'lucide-react';
+
+// Firebase Imports
+import { auth, db } from './firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  onSnapshot, 
+  query, 
+  orderBy, 
+  serverTimestamp, 
+  setDoc,
+  getDoc
+} from 'firebase/firestore';
 
 const App: React.FC = () => {
   // Auth State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User>({
-      id: 'u1', 
-      name: 'Madi Seitzhapbar', 
-      email: 'madi@engineering-centre.com', 
-      role: 'ADMIN', 
+      id: '', 
+      name: '', 
+      email: '', 
+      role: 'USER', 
       avatar: '' 
   });
   
@@ -40,20 +57,111 @@ const App: React.FC = () => {
      ModuleType.HOME, ModuleType.PROJECTS, ModuleType.CRM, ModuleType.CALENDAR
   ]);
 
-  // Data State
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
-  const [projects, setProjects] = useState<string[]>(() => Array.from(new Set(INITIAL_TASKS.map(t => t.project))).sort());
-  
-  const [deals, setDeals] = useState<Deal[]>(INITIAL_DEALS);
-  const [companies, setCompanies] = useState<Company[]>(INITIAL_COMPANIES);
-  const [contacts, setContacts] = useState<Contact[]>(INITIAL_CONTACTS);
-  const [activities] = useState<CrmActivity[]>(INITIAL_ACTIVITIES);
-  const [docs, setDocs] = useState<DocumentItem[]>(INITIAL_DOCS);
-  const [articles, setArticles] = useState<Article[]>(INITIAL_KB);
-  const [logs, setLogs] = useState<SystemLog[]>(INITIAL_LOGS);
-  const [team, setTeam] = useState<TeamMember[]>(INITIAL_TEAM);
+  // Data State (From Firestore)
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<string[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [activities, setActivities] = useState<CrmActivity[]>([]);
+  const [docs, setDocs] = useState<DocumentItem[]>([]);
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [logs, setLogs] = useState<SystemLog[]>([]);
+  const [team, setTeam] = useState<TeamMember[]>([]);
 
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // 1. Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setIsAuthenticated(true);
+        // Check if user exists in 'users' collection, if not create basic profile
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        
+        if (userSnap.exists()) {
+           setCurrentUser({ id: user.uid, ...userSnap.data() } as User);
+        } else {
+           // Initialize new user
+           const newUser: User = {
+             id: user.uid,
+             name: user.displayName || 'User',
+             email: user.email || '',
+             role: 'USER', // Default role
+             avatar: user.photoURL || ''
+           };
+           await setDoc(userRef, newUser);
+           setCurrentUser(newUser);
+        }
+      } else {
+        setIsAuthenticated(false);
+        setCurrentUser({ id: '', name: '', email: '', role: 'USER', avatar: '' });
+      }
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Data Listeners (Real-time updates from Firestore)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Tasks & Projects
+    const unsubTasks = onSnapshot(collection(db, 'tasks'), (snapshot) => {
+      const tasksData = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Task));
+      setTasks(tasksData);
+      const uniqueProjects = Array.from(new Set(tasksData.map(t => t.project).filter(Boolean))).sort();
+      setProjects(uniqueProjects);
+    });
+
+    // Deals
+    const unsubDeals = onSnapshot(collection(db, 'deals'), (snapshot) => {
+      setDeals(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Deal)));
+    });
+
+    // Companies
+    const unsubCompanies = onSnapshot(collection(db, 'companies'), (snapshot) => {
+      setCompanies(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Company)));
+    });
+
+    // Contacts
+    const unsubContacts = onSnapshot(collection(db, 'contacts'), (snapshot) => {
+      setContacts(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Contact)));
+    });
+
+    // Documents
+    const unsubDocs = onSnapshot(collection(db, 'docs'), (snapshot) => {
+      setDocs(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as DocumentItem)));
+    });
+
+    // Knowledge Base
+    const unsubKB = onSnapshot(collection(db, 'articles'), (snapshot) => {
+      setArticles(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Article)));
+    });
+
+    // Team
+    const unsubTeam = onSnapshot(collection(db, 'team'), (snapshot) => {
+      setTeam(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as TeamMember)));
+    });
+
+    // Logs (Ordered by timestamp)
+    const qLogs = query(collection(db, 'logs'), orderBy('timestamp', 'desc'));
+    const unsubLogs = onSnapshot(qLogs, (snapshot) => {
+      setLogs(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as SystemLog)));
+    });
+
+    return () => {
+      unsubTasks();
+      unsubDeals();
+      unsubCompanies();
+      unsubContacts();
+      unsubDocs();
+      unsubKB();
+      unsubTeam();
+      unsubLogs();
+    };
+  }, [isAuthenticated]);
 
   // Theme Toggle Effect
   useEffect(() => {
@@ -75,25 +183,31 @@ const App: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Handlers
-  const handleLogin = () => setIsAuthenticated(true);
-  const handleLogout = () => {
-    setIsAuthenticated(false);
+  // --- Handlers interacting with Firestore ---
+
+  const handleLogout = async () => {
+    await signOut(auth);
     setIsUserMenuOpen(false);
   };
 
-  const addLog = (action: string, module: string) => {
-    const newLog: SystemLog = {
-      id: `l${Date.now()}`,
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      user: currentUser.name,
-      action,
-      module
-    };
-    setLogs(prev => [newLog, ...prev]);
+  const addLog = async (action: string, module: string) => {
+    try {
+      await addDoc(collection(db, 'logs'), {
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        user: currentUser.name || currentUser.email,
+        action,
+        module,
+        createdAt: serverTimestamp()
+      });
+    } catch (e) {
+      console.error("Error adding log: ", e);
+    }
   };
 
-  const handleUpdateProfile = (updatedData: Partial<User>) => {
+  const handleUpdateProfile = async (updatedData: Partial<User>) => {
+      if (!currentUser.id) return;
+      const userRef = doc(db, 'users', currentUser.id);
+      await updateDoc(userRef, updatedData);
       setCurrentUser(prev => ({...prev, ...updatedData}));
       addLog('Обновил данные профиля', 'SETTINGS');
   };
@@ -103,43 +217,51 @@ const App: React.FC = () => {
   };
 
   // --- Team Handlers ---
-  const handleAddTeamMember = (member: TeamMember) => {
-      setTeam(prev => [...prev, member]);
+  const handleAddTeamMember = async (member: TeamMember) => {
+      const { id, ...data } = member; // Let Firestore generate ID or use provided
+      await addDoc(collection(db, 'team'), data);
       addLog(`Добавлен сотрудник: ${member.name}`, 'SETTINGS');
   };
 
-  const handleUpdateTeamMember = (member: TeamMember) => {
-      setTeam(prev => prev.map(m => m.id === member.id ? member : m));
+  const handleUpdateTeamMember = async (member: TeamMember) => {
+      const memberRef = doc(db, 'team', member.id);
+      const { id, ...data } = member;
+      await updateDoc(memberRef, data);
       addLog(`Обновлен сотрудник: ${member.name}`, 'SETTINGS');
   };
 
-  const handleDeleteTeamMember = (id: string) => {
-      setTeam(prev => prev.filter(m => m.id !== id));
-      addLog(`Удален сотрудник: ${id}`, 'SETTINGS');
+  const handleDeleteTeamMember = async (id: string) => {
+      await deleteDoc(doc(db, 'team', id));
+      addLog(`Удален сотрудник`, 'SETTINGS');
   };
 
   // --- Task & Project Handlers ---
   const handleAddProject = (name: string) => {
+      // In this simplified model, projects are derived from tasks. 
+      // To explicitely add a project, we can create a dummy task or just handle it in UI state until a task is added.
+      // For now, we'll just log it, as projects state is derived from tasks.
       if (!projects.includes(name)) {
           setProjects(prev => [...prev, name].sort());
-          addLog(`Создан проект: ${name}`, 'PROJECTS');
+          addLog(`Создан проект (локально): ${name}`, 'PROJECTS');
       }
   };
 
-  const handleTaskUpdate = (taskId: string, newStatus: TaskStatus) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-    addLog(`Статус задачи ${taskId} изменен на ${newStatus}`, 'PROJECTS');
+  const handleTaskUpdate = async (taskId: string, newStatus: TaskStatus) => {
+    const taskRef = doc(db, 'tasks', taskId);
+    await updateDoc(taskRef, { status: newStatus });
+    addLog(`Статус задачи изменен на ${newStatus}`, 'PROJECTS');
   };
-  const handleAddTask = (newTask: Task) => {
-    setTasks(prev => [...prev, newTask]);
-    if (!projects.includes(newTask.project)) {
-        setProjects(prev => [...prev, newTask.project].sort());
-    }
+
+  const handleAddTask = async (newTask: Task) => {
+    const { id, ...data } = newTask; // Remove ID to let Firestore generate it, or keep if specific logic needed
+    // Note: If using optimistic UI, we might use the ID. Here we let Firestore handle it mostly.
+    await addDoc(collection(db, 'tasks'), data);
     addLog(`Создана новая задача: ${newTask.title}`, 'PROJECTS');
   };
-  const handleDeleteTask = (taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId && t.parentId !== taskId));
-    addLog(`Удалена задача ${taskId}`, 'PROJECTS');
+
+  const handleDeleteTask = async (taskId: string) => {
+    await deleteDoc(doc(db, 'tasks', taskId));
+    addLog(`Удалена задача`, 'PROJECTS');
   };
 
   const handleEditTaskRequest = (task: Task) => {
@@ -152,64 +274,87 @@ const App: React.FC = () => {
   };
 
   // --- CRM Handlers ---
-  const handleDealUpdate = (updatedDeal: Deal) => {
-    setDeals(prev => prev.map(d => d.id === updatedDeal.id ? updatedDeal : d));
+  const handleDealUpdate = async (updatedDeal: Deal) => {
+    const dealRef = doc(db, 'deals', updatedDeal.id);
+    const { id, ...data } = updatedDeal;
+    await updateDoc(dealRef, data);
     addLog(`Обновлен этап сделки ${updatedDeal.title}`, 'CRM');
   };
-  const handleAddDeal = (newDeal: Deal) => {
-    setDeals(prev => [...prev, newDeal]);
+  const handleAddDeal = async (newDeal: Deal) => {
+    const { id, ...data } = newDeal;
+    await addDoc(collection(db, 'deals'), data);
     addLog(`Создана сделка: ${newDeal.title}`, 'CRM');
   };
-  const handleDeleteDeal = (id: string) => {
-    setDeals(prev => prev.filter(d => d.id !== id));
-    addLog(`Удалена сделка ${id}`, 'CRM');
+  const handleDeleteDeal = async (id: string) => {
+    await deleteDoc(doc(db, 'deals', id));
+    addLog(`Удалена сделка`, 'CRM');
   };
   
-  const handleAddCompany = (newComp: Company) => {
-    setCompanies(prev => [...prev, newComp]);
+  const handleAddCompany = async (newComp: Company) => {
+    const { id, ...data } = newComp;
+    await addDoc(collection(db, 'companies'), data);
     addLog(`Создана компания: ${newComp.name}`, 'CRM');
   };
-  const handleUpdateCompany = (updatedComp: Company) => {
-    setCompanies(prev => prev.map(c => c.id === updatedComp.id ? updatedComp : c));
+  const handleUpdateCompany = async (updatedComp: Company) => {
+    const ref = doc(db, 'companies', updatedComp.id);
+    const { id, ...data } = updatedComp;
+    await updateDoc(ref, data);
     addLog(`Обновлена компания: ${updatedComp.name}`, 'CRM');
   };
-  const handleDeleteCompany = (id: string) => {
-    setCompanies(prev => prev.filter(c => c.id !== id));
-    addLog(`Удалена компания ${id}`, 'CRM');
+  const handleDeleteCompany = async (id: string) => {
+    await deleteDoc(doc(db, 'companies', id));
+    addLog(`Удалена компания`, 'CRM');
   };
 
-  const handleAddContact = (newCont: Contact) => {
-    setContacts(prev => [...prev, newCont]);
+  const handleAddContact = async (newCont: Contact) => {
+    const { id, ...data } = newCont;
+    await addDoc(collection(db, 'contacts'), data);
     addLog(`Создан контакт: ${newCont.name}`, 'CRM');
   };
-  const handleUpdateContact = (updatedCont: Contact) => {
-    setContacts(prev => prev.map(c => c.id === updatedCont.id ? updatedCont : c));
+  const handleUpdateContact = async (updatedCont: Contact) => {
+    const ref = doc(db, 'contacts', updatedCont.id);
+    const { id, ...data } = updatedCont;
+    await updateDoc(ref, data);
     addLog(`Обновлен контакт: ${updatedCont.name}`, 'CRM');
   };
-  const handleDeleteContact = (id: string) => {
-    setContacts(prev => prev.filter(c => c.id !== id));
-    addLog(`Удален контакт ${id}`, 'CRM');
+  const handleDeleteContact = async (id: string) => {
+    await deleteDoc(doc(db, 'contacts', id));
+    addLog(`Удален контакт`, 'CRM');
   };
 
   // --- Document Handlers ---
-  const handleAddDocument = (doc: DocumentItem) => {
-     setDocs(prev => [...prev, { ...doc, author: currentUser.name, authorId: currentUser.id }]);
-     addLog(`Загружен документ: ${doc.name}`, 'DOCUMENTS');
+  const handleAddDocument = async (docItem: DocumentItem) => {
+     const { id, ...data } = docItem;
+     const docData = { ...data, author: currentUser.name, authorId: currentUser.id };
+     await addDoc(collection(db, 'docs'), docData);
+     addLog(`Загружен документ: ${docItem.name}`, 'DOCUMENTS');
   };
 
-  const handleDeleteDocument = (id: string) => {
-     setDocs(prev => prev.filter(d => d.id !== id));
-     addLog(`Удален документ: ${id}`, 'DOCUMENTS');
+  const handleDeleteDocument = async (id: string) => {
+     await deleteDoc(doc(db, 'docs', id));
+     addLog(`Удален документ`, 'DOCUMENTS');
   };
 
   // --- KB Handlers ---
-  const handleAddArticle = (article: Article) => {
-    setArticles(prev => [...prev, article]);
+  const handleAddArticle = async (article: Article) => {
+    const { id, ...data } = article;
+    await addDoc(collection(db, 'articles'), data);
     addLog(`Добавлена статья: ${article.title}`, 'KNOWLEDGE');
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="flex flex-col items-center gap-4">
+           <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
+           <p className="text-gray-500">Загрузка системы...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
-    return <Login onLogin={handleLogin} />;
+    return <Login onLogin={() => {}} />; // Login component handles auth internally via firebase
   }
 
   const renderContent = () => {
@@ -325,11 +470,11 @@ const App: React.FC = () => {
                  className="flex items-center gap-3 pl-2 md:pl-4 focus:outline-none"
               >
                 <div className="text-right hidden md:block">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{currentUser.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Руководитель проектов</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{currentUser.name || 'Пользователь'}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-right truncate max-w-[100px]">{currentUser.email}</p>
                 </div>
                 <div className="w-9 h-9 rounded-full bg-primary-500 flex items-center justify-center text-gray-900 font-bold shadow-md border-2 border-primary-400">
-                  {currentUser.name.charAt(0)}
+                  {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
                 </div>
               </button>
 
@@ -339,14 +484,14 @@ const App: React.FC = () => {
                   <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 md:hidden">
                     <p className="font-medium text-gray-900 dark:text-white">{currentUser.name}</p>
                   </div>
-                  <button onClick={() => { setActiveModule(ModuleType.SETTINGS); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
+                  <button onClick={() => { setActiveModule(ModuleType.SETTINGS); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                     <SettingsIcon className="w-4 h-4" /> Настройки
                   </button>
-                  <button className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
+                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                     <RefreshCw className="w-4 h-4" /> Сменить аккаунт
                   </button>
                   <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
-                  <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2">
+                  <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2">
                     <LogOut className="w-4 h-4" /> Выйти
                   </button>
                 </div>

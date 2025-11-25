@@ -1,23 +1,34 @@
 import React, { useState } from 'react';
-import { Settings, Mail, Lock, ArrowRight } from 'lucide-react';
+import { Settings, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../firebase';
 
 interface LoginProps {
-  onLogin: () => void;
+  onLogin: (user: any) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate Firebase Auth delay
-    setTimeout(() => {
+    setError('');
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // Successful login is handled by the onAuthStateChanged listener in App.tsx usually,
+      // but we can verify here too.
+      console.log("Logged in:", userCredential.user.email);
+    } catch (err: any) {
+      console.error(err);
+      setError('Ошибка входа: Неверный email или пароль');
+    } finally {
       setIsLoading(false);
-      onLogin();
-    }, 1000);
+    }
   };
 
   return (
@@ -32,6 +43,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           
           <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-2">EC HUB</h1>
           <p className="text-center text-gray-500 dark:text-gray-400 mb-8">Вход в корпоративную систему</p>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded flex items-center gap-2 text-sm">
+              <AlertCircle className="w-4 h-4" /> {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -75,7 +92,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </form>
 
           <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700 text-center">
-             <p className="text-xs text-gray-400 dark:text-gray-500">Powered by Firebase Authentication</p>
+             <p className="text-xs text-gray-400 dark:text-gray-500">Protected by Firebase Authentication</p>
           </div>
         </div>
         <div className="bg-gray-50 dark:bg-gray-900/50 px-8 py-4 text-center">
