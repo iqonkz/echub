@@ -1,3 +1,5 @@
+
+
 import { Task, TaskStatus, Deal, DealStage, DocumentItem, Article, SystemLog, Company, Contact, CrmActivity, TeamMember } from './types';
 
 export const INITIAL_TASKS: Task[] = [
@@ -9,13 +11,61 @@ export const INITIAL_TASKS: Task[] = [
 ];
 
 export const INITIAL_COMPANIES: Company[] = [
-  { id: 'c1', name: 'TechCorp Industries', industry: 'Технологии', phone: '+7 (495) 123-45-67', email: 'info@techcorp.ru', address: 'Москва, ул. Ленина, 1', inn: '7701234567', website: 'techcorp.ru' },
-  { id: 'c2', name: 'Департамент Градостроительства', industry: 'Госсектор', phone: '+7 (495) 987-65-43', email: 'planning@city.ru', address: 'Москва, пл. Революции, 5', inn: '7709876543', website: 'mos.ru' },
+  { 
+    id: 'c1', 
+    name: 'TechCorp Industries', 
+    industry: 'Технологии', 
+    phone: '+7 (495) 123-45-67', 
+    secondPhone: '+7 (777) 111-22-33',
+    email: 'info@techcorp.ru', 
+    secondEmail: 'support@techcorp.ru',
+    address: 'Москва, ул. Ленина, 1', 
+    bin: '123456789012', 
+    website: 'techcorp.ru', 
+    director: 'Александр Технов',
+    createdAt: '2023-01-15'
+  },
+  { 
+    id: 'c2', 
+    name: 'Департамент Градостроительства', 
+    industry: 'Госсектор', 
+    phone: '+7 (495) 987-65-43', 
+    secondPhone: '',
+    email: 'planning@city.ru', 
+    secondEmail: '',
+    address: 'Москва, пл. Революции, 5', 
+    bin: '987654321098', 
+    website: 'mos.ru',
+    director: 'Сергей Собянин',
+    createdAt: '2022-05-20'
+  },
 ];
 
 export const INITIAL_CONTACTS: Contact[] = [
-  { id: 'ct1', name: 'Алиса Смирнова', companyId: 'c1', organization: 'TechCorp Industries', phone: '+7 (900) 111-22-33', email: 'alice@techcorp.ru', position: 'Директор по закупкам', address: 'ул. Ленина, 1, оф. 20' },
-  { id: 'ct2', name: 'Боб Грин', companyId: 'c2', organization: 'Департамент Градостроительства', phone: '+7 (900) 444-55-66', email: 'bob@city.ru', position: 'Главный инженер', address: 'пл. Революции, 5' },
+  { 
+    id: 'ct1', 
+    name: 'Алиса Смирнова', 
+    companyId: 'c1', 
+    organization: 'TechCorp Industries', 
+    phone: '+7 (900) 111-22-33', 
+    secondPhone: '+7 (701) 555-00-99',
+    email: 'alice@techcorp.ru', 
+    position: 'Директор по закупкам', 
+    address: 'ул. Ленина, 1, оф. 20',
+    lastContactDate: '2023-11-01'
+  },
+  { 
+    id: 'ct2', 
+    name: 'Боб Грин', 
+    companyId: 'c2', 
+    organization: 'Департамент Градостроительства', 
+    phone: '+7 (900) 444-55-66', 
+    secondPhone: '',
+    email: 'bob@city.ru', 
+    position: 'Главный инженер', 
+    address: 'пл. Революции, 5',
+    lastContactDate: '2023-10-25'
+  },
 ];
 
 export const INITIAL_DEALS: Deal[] = [

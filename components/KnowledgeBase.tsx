@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Article } from '../types';
-import { BookOpen, ChevronRight, Plus, X, Trash2, MoreVertical, Pencil } from 'lucide-react';
+import { BookOpen, ChevronRight, Plus, X, Trash2, MoreVertical, Pencil, Search } from 'lucide-react';
 
 interface KBProps {
   articles: Article[];
@@ -58,82 +59,89 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
   };
 
   return (
-    <div className="h-[calc(100vh-80px)] md:h-[calc(100vh-140px)] flex flex-col">
-       <div className="flex justify-between items-center mb-4">
-          <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+    <div className="h-[calc(100vh-80px)] md:h-[calc(100vh-140px)] flex flex-col pb-6">
+       <div className="flex justify-between items-center mb-6">
+          <div className="flex bg-white dark:bg-gray-800 p-1.5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
              <button 
                onClick={() => { setActiveTab('WORK'); setSelectedArticle(null); }} 
-               className={`px-4 py-2 text-sm rounded-md transition-colors ${activeTab === 'WORK' ? 'bg-white dark:bg-gray-700 shadow text-primary-700 dark:text-primary-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}
+               className={`px-5 py-2 text-sm font-bold rounded-xl transition-all ${activeTab === 'WORK' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
              >
                Рабочая
              </button>
              <button 
                onClick={() => { setActiveTab('PERSONAL'); setSelectedArticle(null); }}
-               className={`px-4 py-2 text-sm rounded-md transition-colors ${activeTab === 'PERSONAL' ? 'bg-white dark:bg-gray-700 shadow text-primary-700 dark:text-primary-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}
+               className={`px-5 py-2 text-sm font-bold rounded-xl transition-all ${activeTab === 'PERSONAL' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
              >
                Личная
              </button>
           </div>
           <button 
              onClick={() => setIsModalOpen(true)}
-             className="p-2 md:px-4 md:py-2 bg-primary-500 text-gray-900 rounded-lg flex items-center gap-2 font-bold hover:bg-primary-400"
+             className="px-5 py-2.5 bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 rounded-xl flex items-center gap-2 font-bold shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all hover:-translate-y-0.5"
           >
-             <Plus className="w-4 h-4" />
+             <Plus className="w-5 h-5" />
              <span className="hidden md:inline">Добавить статью</span>
           </button>
        </div>
 
       <div className="flex-1 flex gap-6 overflow-hidden flex-col md:flex-row">
         {/* Sidebar / List */}
-        <div className={`w-full md:w-1/3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden ${selectedArticle ? 'hidden md:flex' : 'flex'}`}>
-           <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-             <h2 className="font-bold text-lg text-gray-800 dark:text-white">Статьи</h2>
+        <div className={`w-full md:w-1/3 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none flex flex-col overflow-hidden ${selectedArticle ? 'hidden md:flex' : 'flex'}`}>
+           <div className="p-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm">
+             <h2 className="font-bold text-lg text-gray-900 dark:text-white">Список статей</h2>
            </div>
-           <div className="flex-1 overflow-y-auto p-2 space-y-1">
+           <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {filteredArticles.map(article => (
                 <button
                   key={article.id}
                   onClick={() => setSelectedArticle(article)}
-                  className={`w-full text-left p-3 rounded-lg text-sm transition-colors flex justify-between items-center ${
+                  className={`w-full text-left p-4 rounded-xl text-sm transition-all border group ${
                     selectedArticle?.id === article.id 
-                    ? 'bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 text-primary-800 dark:text-primary-400' 
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    ? 'bg-primary-50 dark:bg-primary-900/10 border-primary-200 dark:border-primary-800/30 shadow-sm' 
+                    : 'bg-white dark:bg-gray-800 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-gray-200 dark:hover:border-gray-600'
                   }`}
                 >
-                  <div>
-                    <div className="font-medium">{article.title}</div>
-                    <div className="text-xs opacity-70 mt-1">{article.category}</div>
+                  <div className="flex justify-between items-start">
+                      <div>
+                        <div className={`font-bold mb-1 ${selectedArticle?.id === article.id ? 'text-primary-900 dark:text-primary-400' : 'text-gray-900 dark:text-white'}`}>{article.title}</div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md">{article.category}</span>
+                      </div>
+                      <ChevronRight className={`w-4 h-4 transition-transform ${selectedArticle?.id === article.id ? 'text-primary-500 rotate-90' : 'text-gray-400'}`} />
                   </div>
-                  <ChevronRight className="w-4 h-4 opacity-50" />
                 </button>
               ))}
-              {filteredArticles.length === 0 && <div className="p-4 text-center text-gray-400 text-sm">Ничего не найдено</div>}
+              {filteredArticles.length === 0 && (
+                  <div className="p-8 text-center text-gray-400 flex flex-col items-center">
+                      <Search className="w-8 h-8 mb-2 opacity-20" />
+                      <span className="text-sm">Ничего не найдено</span>
+                  </div>
+              )}
            </div>
         </div>
 
         {/* Content Area */}
-        <div className={`flex-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 md:p-8 overflow-y-auto ${selectedArticle ? 'block' : 'hidden md:block'}`}>
+        <div className={`flex-1 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none p-6 md:p-10 overflow-y-auto relative ${selectedArticle ? 'block' : 'hidden md:block'}`}>
            {selectedArticle ? (
              <article className="prose dark:prose-invert max-w-none">
-               <div className="flex justify-between items-start mb-4 relative">
-                   <button onClick={() => setSelectedArticle(null)} className="md:hidden mb-4 text-sm text-primary-600 flex items-center gap-1">
-                       &larr; Назад к списку
+               <div className="flex justify-between items-start mb-6 relative">
+                   <button onClick={() => setSelectedArticle(null)} className="md:hidden mb-4 text-sm font-bold text-gray-500 flex items-center gap-1">
+                       &larr; Назад
                    </button>
                    
                    {canDelete(selectedArticle) && (
                        <div className="relative ml-auto">
                            <button 
                              onClick={() => setOpenMenuId(openMenuId === selectedArticle.id ? null : selectedArticle.id)}
-                             className="p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                             className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                            >
                                <MoreVertical className="w-5 h-5" />
                            </button>
                            {openMenuId === selectedArticle.id && (
-                               <div ref={menuRef} className="absolute right-0 top-10 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20 py-1 animate-fade-in">
-                                   <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                               <div ref={menuRef} className="absolute right-0 top-10 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-20 py-2 animate-fade-in overflow-hidden">
+                                   <button className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2 font-medium">
                                        <Pencil className="w-4 h-4" /> Редактировать
                                    </button>
-                                   <button className="w-full text-left px-4 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2">
+                                   <button className="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2 font-medium">
                                        <Trash2 className="w-4 h-4" /> Удалить
                                    </button>
                                </div>
@@ -142,23 +150,35 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
                    )}
                </div>
                
-               <div className="flex items-center gap-2 text-primary-600 dark:text-primary-400 mb-4">
-                 <BookOpen className="w-5 h-5" />
-                 <span className="text-sm font-medium uppercase tracking-wide">{selectedArticle.category}</span>
+               <div className="flex items-center gap-2 text-primary-600 dark:text-primary-400 mb-6">
+                 <div className="p-2 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
+                    <BookOpen className="w-5 h-5" />
+                 </div>
+                 <span className="text-sm font-bold uppercase tracking-wide">{selectedArticle.category}</span>
                </div>
-               <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-4">{selectedArticle.title}</h1>
-               <div className="text-sm text-gray-500 dark:text-gray-400 mb-8 pb-8 border-b border-gray-100 dark:border-gray-700 flex justify-between">
-                 <span>Автор: {selectedArticle.author}</span>
-                 <span>Обновлено: {new Date(selectedArticle.updatedAt).toLocaleDateString()}</span>
+               
+               <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-6 tracking-tight">{selectedArticle.title}</h1>
+               
+               <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-8 pb-8 border-b border-gray-100 dark:border-gray-700">
+                 <div className="flex items-center gap-2">
+                     <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-xs text-gray-600 dark:text-gray-300">
+                         {selectedArticle.author.charAt(0)}
+                     </div>
+                     <span className="font-medium">{selectedArticle.author}</span>
+                 </div>
+                 <span>{new Date(selectedArticle.updatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                </div>
-               <div className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+               
+               <div className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap text-lg">
                  {selectedArticle.content}
                </div>
              </article>
            ) : (
              <div className="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
-               <BookOpen className="w-16 h-16 mb-4 opacity-20" />
-               <p className="text-lg">Выберите статью для просмотра</p>
+               <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700/50 rounded-full flex items-center justify-center mb-6">
+                   <BookOpen className="w-10 h-10 opacity-30" />
+               </div>
+               <p className="text-lg font-medium">Выберите статью для просмотра</p>
              </div>
            )}
         </div>
@@ -166,38 +186,38 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
 
       {/* Add Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4">
-           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh]">
-               <div className="flex justify-between items-center p-5 border-b border-gray-200 dark:border-gray-700">
-                   <h3 className="text-lg font-bold text-gray-900 dark:text-white">Новая статья ({activeTab === 'WORK' ? 'Рабочая' : 'Личная'})</h3>
-                   <button onClick={() => setIsModalOpen(false)}><X className="text-gray-500" /></button>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
+           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh] overflow-hidden">
+               <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
+                   <h3 className="text-xl font-bold text-gray-900 dark:text-white">Новая статья</h3>
+                   <button onClick={() => setIsModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"><X className="w-5 h-5" /></button>
                </div>
-               <form onSubmit={handleAdd} className="p-6 space-y-4 overflow-y-auto">
-                   <div>
-                       <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Заголовок</label>
+               <form onSubmit={handleAdd} className="p-6 space-y-5 overflow-y-auto">
+                   <div className="space-y-1.5">
+                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Заголовок</label>
                        <input 
                          value={newArticle.title} onChange={e => setNewArticle({...newArticle, title: e.target.value})} 
-                         className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded p-2 text-sm focus:border-primary-500 outline-none text-gray-900 dark:text-white" required 
+                         className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" required 
                        />
                    </div>
-                   <div>
-                       <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Категория</label>
+                   <div className="space-y-1.5">
+                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Категория</label>
                        <input 
                          value={newArticle.category} onChange={e => setNewArticle({...newArticle, category: e.target.value})} 
                          placeholder="Например: HR, IT, Инструкции"
-                         className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded p-2 text-sm focus:border-primary-500 outline-none text-gray-900 dark:text-white" required 
+                         className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" required 
                        />
                    </div>
-                   <div>
-                       <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Содержание</label>
+                   <div className="space-y-1.5">
+                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Содержание</label>
                        <textarea 
                          value={newArticle.content} onChange={e => setNewArticle({...newArticle, content: e.target.value})} 
                          rows={8}
-                         className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded p-2 text-sm focus:border-primary-500 outline-none text-gray-900 dark:text-white" required 
+                         className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all resize-none" required 
                        />
                    </div>
-                   <div className="flex justify-end">
-                       <button type="submit" className="px-4 py-2 bg-primary-500 text-gray-900 rounded font-bold hover:bg-primary-400">Сохранить</button>
+                   <div className="flex justify-end pt-2">
+                       <button type="submit" className="px-5 py-2.5 bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 rounded-xl font-bold shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all">Сохранить</button>
                    </div>
                </form>
            </div>

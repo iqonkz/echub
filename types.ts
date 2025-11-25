@@ -1,3 +1,5 @@
+
+
 export enum ModuleType {
   HOME = 'HOME',
   CRM = 'CRM',
@@ -31,7 +33,6 @@ export interface User {
   role: 'ADMIN' | 'USER';
 }
 
-// New Interface for Team Management
 export interface TeamMember {
   id: string;
   name: string;
@@ -70,12 +71,17 @@ export interface Company {
   name: string;
   industry: string;
   phone: string;
+  secondPhone?: string;
   email: string;
-  inn?: string;
-  contactPerson?: string;
-  extraPhone?: string;
+  secondEmail?: string;
+  bin?: string;
+  director?: string;
   website?: string;
   address?: string;
+  createdAt?: string;
+  // Deprecated/Compatibility fields
+  inn?: string; 
+  contactPerson?: string; 
 }
 
 export interface Contact {
@@ -83,11 +89,13 @@ export interface Contact {
   name: string;
   companyId: string;
   phone: string;
+  secondPhone?: string;
   email: string;
   position: string;
   organization?: string;
-  extraPhone?: string;
   address?: string;
+  lastContactDate?: string;
+  extraPhone?: string; // Deprecated
 }
 
 export interface CrmActivity {

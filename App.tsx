@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ModuleType, Task, Deal, DocumentItem, Article, SystemLog, TaskStatus, Company, Contact, CrmActivity, User, TeamMember } from './types';
 import Sidebar from './components/Sidebar';
@@ -71,6 +72,21 @@ const App: React.FC = () => {
 
   const userMenuRef = useRef<HTMLDivElement>(null);
 
+  // Helper to remove undefined fields before sending to Firestore
+  const sanitizeForFirestore = (obj: any): any => {
+    if (typeof obj !== 'object' || obj === null) return obj;
+    if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+    
+    const newObj: any = {};
+    Object.keys(obj).forEach(key => {
+      const val = obj[key];
+      if (val !== undefined) {
+        newObj[key] = sanitizeForFirestore(val);
+      }
+    });
+    return newObj;
+  };
+
   // 1. Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -111,7 +127,7 @@ const App: React.FC = () => {
     const unsubTasks = onSnapshot(collection(db, 'tasks'), (snapshot) => {
       const tasksData = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Task));
       setTasks(tasksData);
-      const uniqueProjects = Array.from(new Set(tasksData.map(t => t.project).filter(Boolean))).sort();
+      const uniqueProjects = Array.from(new Set<string>(tasksData.map(t => t.project).filter((p): p is string => !!p))).sort();
       setProjects(uniqueProjects);
     });
 
@@ -207,7 +223,7 @@ const App: React.FC = () => {
   const handleUpdateProfile = async (updatedData: Partial<User>) => {
       if (!currentUser.id) return;
       const userRef = doc(db, 'users', currentUser.id);
-      await updateDoc(userRef, updatedData);
+      await updateDoc(userRef, sanitizeForFirestore(updatedData));
       setCurrentUser(prev => ({...prev, ...updatedData}));
       addLog('Обновил данные профиля', 'SETTINGS');
   };
@@ -218,15 +234,15 @@ const App: React.FC = () => {
 
   // --- Team Handlers ---
   const handleAddTeamMember = async (member: TeamMember) => {
-      const { id, ...data } = member; // Let Firestore generate ID or use provided
-      await addDoc(collection(db, 'team'), data);
+      const { id, ...data } = member; 
+      await addDoc(collection(db, 'team'), sanitizeForFirestore(data));
       addLog(`Добавлен сотрудник: ${member.name}`, 'SETTINGS');
   };
 
   const handleUpdateTeamMember = async (member: TeamMember) => {
       const memberRef = doc(db, 'team', member.id);
       const { id, ...data } = member;
-      await updateDoc(memberRef, data);
+      await updateDoc(memberRef, sanitizeForFirestore(data));
       addLog(`Обновлен сотрудник: ${member.name}`, 'SETTINGS');
   };
 
@@ -237,9 +253,6 @@ const App: React.FC = () => {
 
   // --- Task & Project Handlers ---
   const handleAddProject = (name: string) => {
-      // In this simplified model, projects are derived from tasks. 
-      // To explicitely add a project, we can create a dummy task or just handle it in UI state until a task is added.
-      // For now, we'll just log it, as projects state is derived from tasks.
       if (!projects.includes(name)) {
           setProjects(prev => [...prev, name].sort());
           addLog(`Создан проект (локально): ${name}`, 'PROJECTS');
@@ -253,9 +266,8 @@ const App: React.FC = () => {
   };
 
   const handleAddTask = async (newTask: Task) => {
-    const { id, ...data } = newTask; // Remove ID to let Firestore generate it, or keep if specific logic needed
-    // Note: If using optimistic UI, we might use the ID. Here we let Firestore handle it mostly.
-    await addDoc(collection(db, 'tasks'), data);
+    const { id, ...data } = newTask;
+    await addDoc(collection(db, 'tasks'), sanitizeForFirestore(data));
     addLog(`Создана новая задача: ${newTask.title}`, 'PROJECTS');
   };
 
@@ -277,12 +289,12 @@ const App: React.FC = () => {
   const handleDealUpdate = async (updatedDeal: Deal) => {
     const dealRef = doc(db, 'deals', updatedDeal.id);
     const { id, ...data } = updatedDeal;
-    await updateDoc(dealRef, data);
+    await updateDoc(dealRef, sanitizeForFirestore(data));
     addLog(`Обновлен этап сделки ${updatedDeal.title}`, 'CRM');
   };
   const handleAddDeal = async (newDeal: Deal) => {
     const { id, ...data } = newDeal;
-    await addDoc(collection(db, 'deals'), data);
+    await addDoc(collection(db, 'deals'), sanitizeForFirestore(data));
     addLog(`Создана сделка: ${newDeal.title}`, 'CRM');
   };
   const handleDeleteDeal = async (id: string) => {
@@ -292,13 +304,13 @@ const App: React.FC = () => {
   
   const handleAddCompany = async (newComp: Company) => {
     const { id, ...data } = newComp;
-    await addDoc(collection(db, 'companies'), data);
+    await addDoc(collection(db, 'companies'), sanitizeForFirestore(data));
     addLog(`Создана компания: ${newComp.name}`, 'CRM');
   };
   const handleUpdateCompany = async (updatedComp: Company) => {
     const ref = doc(db, 'companies', updatedComp.id);
     const { id, ...data } = updatedComp;
-    await updateDoc(ref, data);
+    await updateDoc(ref, sanitizeForFirestore(data));
     addLog(`Обновлена компания: ${updatedComp.name}`, 'CRM');
   };
   const handleDeleteCompany = async (id: string) => {
@@ -308,13 +320,13 @@ const App: React.FC = () => {
 
   const handleAddContact = async (newCont: Contact) => {
     const { id, ...data } = newCont;
-    await addDoc(collection(db, 'contacts'), data);
+    await addDoc(collection(db, 'contacts'), sanitizeForFirestore(data));
     addLog(`Создан контакт: ${newCont.name}`, 'CRM');
   };
   const handleUpdateContact = async (updatedCont: Contact) => {
     const ref = doc(db, 'contacts', updatedCont.id);
     const { id, ...data } = updatedCont;
-    await updateDoc(ref, data);
+    await updateDoc(ref, sanitizeForFirestore(data));
     addLog(`Обновлен контакт: ${updatedCont.name}`, 'CRM');
   };
   const handleDeleteContact = async (id: string) => {
@@ -326,7 +338,7 @@ const App: React.FC = () => {
   const handleAddDocument = async (docItem: DocumentItem) => {
      const { id, ...data } = docItem;
      const docData = { ...data, author: currentUser.name, authorId: currentUser.id };
-     await addDoc(collection(db, 'docs'), docData);
+     await addDoc(collection(db, 'docs'), sanitizeForFirestore(docData));
      addLog(`Загружен документ: ${docItem.name}`, 'DOCUMENTS');
   };
 
@@ -338,7 +350,7 @@ const App: React.FC = () => {
   // --- KB Handlers ---
   const handleAddArticle = async (article: Article) => {
     const { id, ...data } = article;
-    await addDoc(collection(db, 'articles'), data);
+    await addDoc(collection(db, 'articles'), sanitizeForFirestore(data));
     addLog(`Добавлена статья: ${article.title}`, 'KNOWLEDGE');
   };
 
@@ -354,7 +366,7 @@ const App: React.FC = () => {
   }
 
   if (!isAuthenticated) {
-    return <Login onLogin={() => {}} />; // Login component handles auth internally via firebase
+    return <Login onLogin={() => {}} />; 
   }
 
   const renderContent = () => {
@@ -381,6 +393,8 @@ const App: React.FC = () => {
            onAddProject={handleAddProject}
            searchQuery={searchQuery} 
            currentUser={currentUser} 
+           openEditTask={handleEditTaskRequest}
+           team={team}
         />;
       case ModuleType.CALENDAR:
         return <Calendar tasks={tasks} onAddTask={handleAddTask} onEditTask={handleEditTaskRequest} />;
