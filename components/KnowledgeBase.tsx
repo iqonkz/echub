@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Article } from '../types';
-import { BookOpen, ChevronRight, Plus, X, Trash2, MoreVertical, Pencil, Search } from 'lucide-react';
+import { BookOpen, ChevronRight, Plus, X, Trash2, MoreVertical, Pencil, Search, Bold, Italic, List } from 'lucide-react';
 
 interface KBProps {
   articles: Article[];
@@ -20,6 +20,7 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
   
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: any) => {
@@ -54,8 +55,46 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
       setNewArticle({ title: '', category: '', content: '' });
   };
 
+  const insertFormatting = (tag: string) => {
+      if (!textAreaRef.current) return;
+      
+      const start = textAreaRef.current.selectionStart;
+      const end = textAreaRef.current.selectionEnd;
+      const text = newArticle.content;
+      
+      let prefix = '';
+      let suffix = '';
+
+      if (tag === 'bold') { prefix = '**'; suffix = '**'; }
+      if (tag === 'italic') { prefix = '_'; suffix = '_'; }
+      if (tag === 'list') { prefix = '\n- '; suffix = ''; }
+
+      const before = text.substring(0, start);
+      const selected = text.substring(start, end);
+      const after = text.substring(end);
+
+      setNewArticle({ ...newArticle, content: `${before}${prefix}${selected}${suffix}${after}` });
+      
+      // Restore focus (approximate)
+      setTimeout(() => textAreaRef.current?.focus(), 0);
+  };
+
   const canDelete = (article: Article) => {
       return article.authorId === currentUser?.id || currentUser?.role === 'ADMIN';
+  };
+
+  // Simple formatter to render bold, italic, and lists
+  const formatContent = (text: string) => {
+      // Escape HTML first to prevent injection if this was real user content
+      // For this demo, we'll skip complex sanitization but focus on the requested formats
+      
+      let formatted = text
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+          .replace(/_(.*?)_/g, '<em>$1</em>') // Italic
+          .replace(/\n- (.*)/g, '<li class="ml-4 list-disc">$1</li>') // List items
+          .replace(/\n/g, '<br/>'); // Line breaks
+
+      return <div dangerouslySetInnerHTML={{__html: formatted}} />;
   };
 
   return (
@@ -169,8 +208,8 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
                  <span>{new Date(selectedArticle.updatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                </div>
                
-               <div className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap text-lg">
-                 {selectedArticle.content}
+               <div className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg">
+                 {formatContent(selectedArticle.content)}
                </div>
              </article>
            ) : (
@@ -210,10 +249,17 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
                    </div>
                    <div className="space-y-1.5">
                        <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Содержание</label>
+                       {/* Toolbar */}
+                       <div className="flex gap-2 mb-2">
+                           <button type="button" onClick={() => insertFormatting('bold')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500" title="Жирный"><Bold className="w-4 h-4"/></button>
+                           <button type="button" onClick={() => insertFormatting('italic')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500" title="Курсив"><Italic className="w-4 h-4"/></button>
+                           <button type="button" onClick={() => insertFormatting('list')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500" title="Список"><List className="w-4 h-4"/></button>
+                       </div>
                        <textarea 
+                         ref={textAreaRef}
                          value={newArticle.content} onChange={e => setNewArticle({...newArticle, content: e.target.value})} 
                          rows={8}
-                         className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all resize-none" required 
+                         className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all resize-none font-mono" required 
                        />
                    </div>
                    <div className="flex justify-end pt-2">

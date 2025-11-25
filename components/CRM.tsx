@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
-import { Deal, DealStage, Company, Contact, CrmActivity } from '../types';
-import { Plus, LayoutGrid, List, Trash2, Building, Filter, X, Pencil, ArrowUpDown, Phone, Mail, } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Deal, DealStage, Company, Contact, CrmActivity, User, CrmUserSettings, CrmColumn } from '../types';
+import { Plus, LayoutGrid, List, Trash2, Building, Filter, X, Pencil, ArrowUpDown, Phone, Mail, User as UserIcon, Download, Upload, Settings } from 'lucide-react';
 
 interface CRMProps {
   deals: Deal[];
@@ -18,31 +18,71 @@ interface CRMProps {
   onUpdateContact: (contact: Contact) => void;
   onDeleteContact: (id: string) => void;
   searchQuery: string;
+  currentUser?: User;
+  onUpdateCrmSettings?: (settings: CrmUserSettings) => void;
 }
 
 type CrmTab = 'DEALS' | 'COMPANIES' | 'PEOPLE' | 'ACTIVITIES';
 type ViewMode = 'KANBAN' | 'LIST';
 type SortConfig = { key: string, direction: 'asc' | 'desc' } | null;
 
+const DEFAULT_SETTINGS: CrmUserSettings = {
+    dealsColumns: [
+        { key: 'title', label: 'Название', visible: true, order: 0 },
+        { key: 'clientName', label: 'Клиент', visible: true, order: 1 },
+        { key: 'value', label: 'Сумма', visible: true, order: 2 },
+        { key: 'stage', label: 'Статус', visible: true, order: 3 }
+    ],
+    companiesColumns: [
+        { key: 'name', label: 'Название', visible: true, order: 0 },
+        { key: 'industry', label: 'Отрасль', visible: true, order: 1 },
+        { key: 'phone', label: 'Телефон', visible: true, order: 2 },
+        { key: 'email', label: 'Почта', visible: true, order: 3 },
+        { key: 'address', label: 'Город', visible: true, order: 4 }
+    ],
+    contactsColumns: [
+        { key: 'name', label: 'ФИО', visible: true, order: 0 },
+        { key: 'position', label: 'Должность', visible: true, order: 1 },
+        { key: 'organization', label: 'Компания', visible: true, order: 2 },
+        { key: 'phone', label: 'Телефон', visible: true, order: 3 },
+        { key: 'email', label: 'Почта', visible: true, order: 4 }
+    ]
+};
+
 const CRM: React.FC<CRMProps> = ({ 
   deals, companies, contacts, activities,
   onUpdateDeal, onAddDeal, onDeleteDeal,
   onAddCompany, onUpdateCompany, onDeleteCompany,
   onAddContact, onUpdateContact, onDeleteContact,
-  searchQuery
+  searchQuery, currentUser, onUpdateCrmSettings
 }) => {
   const [activeTab, setActiveTab] = useState<CrmTab>('DEALS');
   const [viewMode, setViewMode] = useState<ViewMode>('KANBAN');
   const [filterValue, setFilterValue] = useState<string>('ALL');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   
+  // Drag and Drop State
+  const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
+  
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   
   const [editingItem, setEditingItem] = useState<any>(null); 
   const [formData, setFormData] = useState<any>({});
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Settings State
+  const [currentSettings, setCurrentSettings] = useState<CrmUserSettings>(currentUser?.crmSettings || DEFAULT_SETTINGS);
+
+  useEffect(() => {
+     if (currentUser?.crmSettings) {
+         setCurrentSettings(currentUser.crmSettings);
+     }
+  }, [currentUser]);
 
   // --- Filtering Logic ---
   const uniqueIndustries = Array.from(new Set(companies.map(c => c.industry))).filter(Boolean);
@@ -97,6 +137,68 @@ const CRM: React.FC<CRMProps> = ({
     setIsDetailModalOpen(true);
   };
 
+  // --- Export / Import Handlers ---
+  const handleExport = () => {
+    let dataToExport: any[] = [];
+    let filename = '';
+
+    if (activeTab === 'COMPANIES') {
+        dataToExport = filteredCompanies;
+        filename = 'companies_export.json';
+    } else if (activeTab === 'PEOPLE') {
+        dataToExport = filteredContacts;
+        filename = 'contacts_export.json';
+    } else if (activeTab === 'DEALS') {
+        dataToExport = filteredDeals;
+        filename = 'deals_export.json';
+    } else {
+        alert('Экспорт для этой вкладки не поддерживается');
+        return;
+    }
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToExport, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", filename);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
+  const triggerImport = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+          try {
+              const json = JSON.parse(e.target?.result as string);
+              if (Array.isArray(json)) {
+                  if (activeTab === 'COMPANIES') {
+                      json.forEach((item: Company) => onAddCompany({...item, id: `c${Date.now()}_${Math.random()}`}));
+                  } else if (activeTab === 'PEOPLE') {
+                      json.forEach((item: Contact) => onAddContact({...item, id: `ct${Date.now()}_${Math.random()}`}));
+                  } else if (activeTab === 'DEALS') {
+                      json.forEach((item: Deal) => onAddDeal({...item, id: `d${Date.now()}_${Math.random()}`}));
+                  }
+                  alert(`Успешно импортировано ${json.length} записей.`);
+              } else {
+                  alert('Неверный формат файла. Ожидается массив JSON.');
+              }
+          } catch (error) {
+              console.error(error);
+              alert('Ошибка при чтении файла');
+          }
+      };
+      reader.readAsText(file);
+      // Reset input
+      event.target.value = '';
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const isEdit = !!editingItem;
@@ -105,13 +207,28 @@ const CRM: React.FC<CRMProps> = ({
     const sanitize = (val: any) => (val === undefined || val === null) ? '' : val;
 
     if (activeTab === 'DEALS') {
+       // Find client name based on ID if selected
+       let clientName = formData.clientName || 'Клиент';
+       let contactId = 'ct1'; // Default fallback
+       
+       if (formData.linkedCompanyId) {
+          const comp = companies.find(c => c.id === formData.linkedCompanyId);
+          if (comp) clientName = comp.name;
+       } else if (formData.linkedContactId) {
+           const cont = contacts.find(c => c.id === formData.linkedContactId);
+           if (cont) {
+             clientName = cont.name;
+             contactId = cont.id;
+           }
+       }
+
        const dealData = {
         id: isEdit ? id : `d${id}`,
         title: sanitize(formData.title) || 'Новая сделка',
-        clientName: sanitize(formData.clientName) || 'Клиент',
+        clientName: clientName,
         value: Number(formData.value) || 0,
         stage: isEdit ? formData.stage : DealStage.NEW,
-        contactId: 'ct1',
+        contactId: contactId,
         expectedClose: sanitize(formData.expectedClose) || new Date().toISOString().split('T')[0]
       };
       isEdit ? onUpdateDeal(dealData) : onAddDeal(dealData);
@@ -148,24 +265,10 @@ const CRM: React.FC<CRMProps> = ({
         lastContactDate: isEdit ? formData.lastContactDate : new Date().toISOString().split('T')[0]
       };
       isEdit ? onUpdateContact(contactData) : onAddContact(contactData);
-    } else if (activeTab === 'ACTIVITIES') {
-        // ...
-    }
+    } 
     setIsModalOpen(false);
     setFormData({});
     setEditingItem(null);
-  };
-
-  const moveDealStage = (deal: Deal, direction: 'next' | 'prev') => {
-    const stages = Object.values(DealStage);
-    const currentIndex = stages.indexOf(deal.stage);
-    let newIndex = currentIndex;
-    if (direction === 'next' && currentIndex < stages.length - 1) newIndex++;
-    if (direction === 'prev' && currentIndex > 0) newIndex--;
-    
-    if (newIndex !== currentIndex) {
-      onUpdateDeal({ ...deal, stage: stages[newIndex] });
-    }
   };
 
   const renderSortIcon = (key: string) => {
@@ -173,11 +276,46 @@ const CRM: React.FC<CRMProps> = ({
       return <ArrowUpDown className={`w-3 h-3 ${sortConfig.direction === 'asc' ? 'text-primary-600' : 'text-primary-400'}`} />;
   };
 
-  // Render Methods
+  // --- Settings Handlers ---
+  const toggleColumn = (tab: 'DEALS' | 'COMPANIES' | 'PEOPLE', key: string) => {
+      const newSettings = { ...currentSettings };
+      const prop = tab === 'DEALS' ? 'dealsColumns' : tab === 'COMPANIES' ? 'companiesColumns' : 'contactsColumns';
+      
+      newSettings[prop] = newSettings[prop].map(col => 
+          col.key === key ? { ...col, visible: !col.visible } : col
+      );
+      
+      setCurrentSettings(newSettings);
+      if (onUpdateCrmSettings) onUpdateCrmSettings(newSettings);
+  };
+
+  const moveColumn = (tab: 'DEALS' | 'COMPANIES' | 'PEOPLE', index: number, direction: 'UP' | 'DOWN') => {
+      const newSettings = { ...currentSettings };
+      const prop = tab === 'DEALS' ? 'dealsColumns' : tab === 'COMPANIES' ? 'companiesColumns' : 'contactsColumns';
+      const cols = [...newSettings[prop]];
+      
+      if (direction === 'UP' && index > 0) {
+          [cols[index], cols[index - 1]] = [cols[index - 1], cols[index]];
+      } else if (direction === 'DOWN' && index < cols.length - 1) {
+          [cols[index], cols[index + 1]] = [cols[index + 1], cols[index]];
+      }
+      
+      // Update order property
+      cols.forEach((c, i) => c.order = i);
+      newSettings[prop] = cols;
+      
+      setCurrentSettings(newSettings);
+      if (onUpdateCrmSettings) onUpdateCrmSettings(newSettings);
+  };
+
+  // --- Render Methods ---
   const renderDealsKanban = () => (
     <div className="flex gap-6 min-w-max h-full pb-6 px-1">
       {Object.values(DealStage).map((stage) => (
-        <div key={stage} className="w-80 flex-shrink-0 flex flex-col bg-gray-100/50 dark:bg-gray-800/20 rounded-2xl border border-gray-200/50 dark:border-gray-700/50">
+        <div 
+          key={stage} 
+          className="w-80 flex-shrink-0 flex flex-col bg-gray-100/50 dark:bg-gray-800/20 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 transition-colors"
+        >
           <div className="p-4 border-b border-gray-200/50 dark:border-gray-700/50 flex justify-between items-center bg-gray-50/80 dark:bg-gray-800/80 rounded-t-2xl backdrop-blur-sm">
             <div className="flex items-center gap-2">
                 <span className={`w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-gray-700 shadow-sm ${stage === DealStage.WON ? 'bg-green-500' : 'bg-primary-500'}`} />
@@ -189,7 +327,11 @@ const CRM: React.FC<CRMProps> = ({
           </div>
           <div className="p-3 flex-1 overflow-y-auto space-y-3 scrollbar-thin">
             {filteredDeals.filter(d => d.stage === stage).map(deal => (
-              <div key={deal.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300 border border-gray-100 dark:border-gray-700/50 group relative cursor-pointer transform hover:-translate-y-1" onClick={() => openDetailModal(deal)}>
+              <div 
+                key={deal.id} 
+                className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300 border border-gray-100 dark:border-gray-700/50 group relative cursor-pointer transform hover:-translate-y-1 active:cursor-grabbing" 
+                onClick={() => openDetailModal(deal)}
+              >
                 <div className="flex justify-between items-start mb-3">
                   <h4 className="font-bold text-gray-900 dark:text-white line-clamp-2 text-sm hover:text-primary-600 transition-colors">{deal.title}</h4>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -215,10 +357,6 @@ const CRM: React.FC<CRMProps> = ({
                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{deal.expectedClose}</span>
                   </div>
                 </div>
-                <div className="flex justify-between mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <button onClick={(e) => {e.stopPropagation(); moveDealStage(deal, 'prev');}} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 hover:text-gray-900 transition-colors disabled:opacity-30">&larr;</button>
-                    <button onClick={(e) => {e.stopPropagation(); moveDealStage(deal, 'next');}} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 hover:text-gray-900 transition-colors disabled:opacity-30">&rarr;</button>
-                </div>
               </div>
             ))}
           </div>
@@ -233,44 +371,32 @@ const CRM: React.FC<CRMProps> = ({
   const renderListView = () => {
     let data: any[] = [];
     let onDelete: any = null;
-    let columns: {label: string, key: string}[] = [];
+    let columns: CrmColumn[] = [];
 
     if (activeTab === 'DEALS') {
       data = filteredDeals;
       onDelete = onDeleteDeal;
-      columns = [
-          {label: 'Название', key: 'title'},
-          {label: 'Клиент', key: 'clientName'},
-          {label: 'Сумма', key: 'value'},
-          {label: 'Статус', key: 'stage'}
-      ];
+      columns = currentSettings.dealsColumns.filter(c => c.visible);
     } else if (activeTab === 'COMPANIES') {
       data = filteredCompanies;
       onDelete = onDeleteCompany;
-      columns = [
-          {label: 'Название', key: 'name'},
-          {label: 'Отрасль', key: 'industry'},
-          {label: 'Руководитель', key: 'director'},
-          {label: 'Телефон', key: 'phone'}
-      ];
+      columns = currentSettings.companiesColumns.filter(c => c.visible);
     } else if (activeTab === 'PEOPLE') {
       data = filteredContacts;
       onDelete = onDeleteContact;
-      columns = [
-          {label: 'ФИО', key: 'name'},
-          {label: 'Должность', key: 'position'},
-          {label: 'Компания', key: 'organization'},
-          {label: 'Телефон', key: 'phone'}
-      ];
+      columns = currentSettings.contactsColumns.filter(c => c.visible);
     } else if (activeTab === 'ACTIVITIES') {
       data = activities;
       columns = [
-        {label: 'Тема', key: 'subject'},
-        {label: 'Тип', key: 'type'},
-        {label: 'Дата', key: 'date'},
-        {label: 'Статус', key: 'status'}
+        {label: 'Тема', key: 'subject', visible: true, order: 0},
+        {label: 'Тип', key: 'type', visible: true, order: 1},
+        {label: 'Дата', key: 'date', visible: true, order: 2},
+        {label: 'Статус', key: 'status', visible: true, order: 3}
       ];
     }
+
+    // Helper to get City from Address
+    const getCityFromAddress = (address?: string) => address ? address.split(',')[0].trim() : '';
 
     return (
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col h-full">
@@ -293,24 +419,28 @@ const CRM: React.FC<CRMProps> = ({
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {data.map((item: any) => (
                 <tr key={item.id} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group" onClick={() => openDetailModal(item)}>
-                  <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">
-                    {item.title || item.name || item.subject}
-                  </td>
-                  <td className="px-6 py-4">
-                    {activeTab === 'COMPANIES' ? item.industry : 
-                     activeTab === 'PEOPLE' ? item.position :
-                     activeTab === 'DEALS' ? item.clientName : item.type}
-                  </td>
-                  <td className="px-6 py-4 font-medium">
-                     {activeTab === 'DEALS' ? `₸${item.value.toLocaleString()}` :
-                      activeTab === 'PEOPLE' ? item.organization :
-                      activeTab === 'COMPANIES' ? item.director : item.date}
-                  </td>
-                  <td className="px-6 py-4">
-                    {activeTab === 'DEALS' ? <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{item.stage}</span> : 
-                     activeTab === 'COMPANIES' ? <a href={`tel:${item.phone}`} onClick={e => e.stopPropagation()} className="text-primary-600 hover:underline">{item.phone}</a> :
-                     activeTab === 'PEOPLE' ? <a href={`tel:${item.phone}`} onClick={e => e.stopPropagation()} className="text-primary-600 hover:underline">{item.phone}</a> : item.status}
-                  </td>
+                  {columns.map(col => {
+                     const val = item[col.key];
+                     let content = val;
+                     
+                     // Custom Render Logic based on key
+                     if (col.key === 'title' || col.key === 'name' || col.key === 'subject') {
+                         content = <span className="font-bold text-gray-900 dark:text-white">{val}</span>;
+                     } else if (col.key === 'phone') {
+                         content = <a href={`tel:${val}`} onClick={e => e.stopPropagation()} className="text-primary-600 hover:underline">{val}</a>;
+                     } else if (col.key === 'email') {
+                         content = <a href={`mailto:${val}`} onClick={e => e.stopPropagation()} className="text-primary-600 hover:underline">{val}</a>;
+                     } else if (col.key === 'value') {
+                         content = `₸${Number(val).toLocaleString()}`;
+                     } else if (col.key === 'stage' || col.key === 'status') {
+                         content = <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{val}</span>;
+                     } else if (col.key === 'address') {
+                         content = getCityFromAddress(val);
+                     }
+
+                     return <td key={col.key} className="px-6 py-4">{content}</td>;
+                  })}
+                  
                   <td className="px-6 py-4 text-right flex justify-end gap-2" onClick={e => e.stopPropagation()}>
                     <button onClick={() => openModal(item)} className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
                       <Pencil className="w-4 h-4" />
@@ -371,6 +501,16 @@ const CRM: React.FC<CRMProps> = ({
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+           {/* Settings Trigger */}
+           {activeTab !== 'ACTIVITIES' && (
+               <button 
+                  onClick={() => setIsSettingsModalOpen(true)}
+                  className="p-2.5 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white shadow-sm"
+               >
+                  <Settings className="w-4 h-4" />
+               </button>
+           )}
+
            {/* Filter Dropdown */}
            {(activeTab === 'COMPANIES' || activeTab === 'PEOPLE') && (
               <div className="relative">
@@ -421,6 +561,67 @@ const CRM: React.FC<CRMProps> = ({
         ) : renderListView()}
       </div>
 
+      {/* Settings Modal */}
+      {isSettingsModalOpen && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]">
+                  <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                          <Settings className="w-5 h-5"/> Настройки CRM
+                      </h3>
+                      <button onClick={() => setIsSettingsModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"><X className="w-5 h-5"/></button>
+                  </div>
+                  <div className="p-6 space-y-6 overflow-y-auto">
+                      {/* Import/Export Section */}
+                      {currentUser?.role === 'ADMIN' && (
+                          <div className="space-y-3">
+                              <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Обмен данными</h4>
+                              <div className="grid grid-cols-2 gap-3">
+                                  <button onClick={handleExport} className="flex flex-col items-center justify-center p-4 rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all gap-2 group">
+                                      <Download className="w-6 h-6 text-primary-500 group-hover:scale-110 transition-transform" />
+                                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Экспорт</span>
+                                  </button>
+                                  <button onClick={triggerImport} className="flex flex-col items-center justify-center p-4 rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all gap-2 group">
+                                      <Upload className="w-6 h-6 text-primary-500 group-hover:scale-110 transition-transform" />
+                                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Импорт</span>
+                                  </button>
+                                  <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImport} />
+                              </div>
+                          </div>
+                      )}
+
+                      {/* Columns Configuration */}
+                      {(activeTab === 'DEALS' || activeTab === 'COMPANIES' || activeTab === 'PEOPLE') && (
+                          <div className="space-y-3">
+                              <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Настройка столбцов</h4>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Выберите и упорядочьте столбцы для списка</p>
+                              
+                              <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-100 dark:border-gray-700 rounded-xl p-2">
+                                  {(activeTab === 'DEALS' ? currentSettings.dealsColumns : activeTab === 'COMPANIES' ? currentSettings.companiesColumns : currentSettings.contactsColumns).map((col, idx) => (
+                                      <div key={col.key} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                                          <div className="flex items-center gap-3">
+                                              <input 
+                                                  type="checkbox" 
+                                                  checked={col.visible} 
+                                                  onChange={() => toggleColumn(activeTab as any, col.key)}
+                                                  className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                                              />
+                                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{col.label}</span>
+                                          </div>
+                                          <div className="flex flex-col gap-0.5">
+                                              <button onClick={() => moveColumn(activeTab as any, idx, 'UP')} disabled={idx === 0} className="text-gray-400 hover:text-gray-700 disabled:opacity-30"><ArrowUpDown className="w-3 h-3 rotate-180" /></button>
+                                              <button onClick={() => moveColumn(activeTab as any, idx, 'DOWN')} disabled={idx === (activeTab === 'DEALS' ? currentSettings.dealsColumns.length : activeTab === 'COMPANIES' ? currentSettings.companiesColumns.length : currentSettings.contactsColumns.length) - 1} className="text-gray-400 hover:text-gray-700 disabled:opacity-30"><ArrowUpDown className="w-3 h-3" /></button>
+                                          </div>
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      )}
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* Edit/Add Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
@@ -439,10 +640,33 @@ const CRM: React.FC<CRMProps> = ({
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Название сделки*</label>
                     <input value={formData.title || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, title: e.target.value})} required />
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Клиент</label>
-                    <input value={formData.clientName || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, clientName: e.target.value})} required />
+                  
+                  {/* Select Company or Contact */}
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-1.5">
+                         <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400 flex items-center gap-1"><Building className="w-3 h-3"/> Компания</label>
+                         <select 
+                            value={formData.linkedCompanyId || ''} 
+                            onChange={e => setFormData({...formData, linkedCompanyId: e.target.value, linkedContactId: '', clientName: ''})}
+                            className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all"
+                         >
+                             <option value="">Выберите...</option>
+                             {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                         </select>
+                     </div>
+                     <div className="space-y-1.5">
+                         <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400 flex items-center gap-1"><UserIcon className="w-3 h-3"/> Человек</label>
+                         <select 
+                            value={formData.linkedContactId || ''} 
+                            onChange={e => setFormData({...formData, linkedContactId: e.target.value, linkedCompanyId: '', clientName: ''})}
+                            className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all"
+                         >
+                             <option value="">Выберите...</option>
+                             {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                         </select>
+                     </div>
                   </div>
+
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Сумма</label>
                     <div className="relative">
@@ -601,86 +825,61 @@ const CRM: React.FC<CRMProps> = ({
                       {Object.entries(selectedItem).map(([key, value]) => {
                           if (['id', 'companyId', 'contactId', 'relatedEntityId', 'inn'].includes(key) || value === undefined || value === null || value === '') return null;
                           if (key === 'phone' || key === 'secondPhone') {
-                              return (
-                                <div key={key} className="col-span-2 sm:col-span-1">
-                                    <label className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500 mb-1.5 block tracking-wider flex items-center gap-1"><Phone className="w-3 h-3"/> {key === 'phone' ? 'Телефон' : '2-й Телефон'}</label>
-                                    <a href={`tel:${value}`} className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline break-words p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50 block hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm">{String(value)}</a>
-                                </div>
-                              );
+                             return (
+                                 <div key={key}>
+                                     <span className="text-xs font-bold text-gray-500 uppercase block mb-1">{key === 'phone' ? 'Телефон' : '2-й Телефон'}</span>
+                                     <a href={`tel:${value}`} className="font-medium text-primary-600 hover:underline flex items-center gap-1"><Phone className="w-3 h-3"/> {String(value)}</a>
+                                 </div>
+                             );
                           }
                           if (key === 'email' || key === 'secondEmail') {
                               return (
-                                <div key={key} className="col-span-2 sm:col-span-1">
-                                    <label className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500 mb-1.5 block tracking-wider flex items-center gap-1"><Mail className="w-3 h-3"/> {key === 'email' ? 'Email' : '2-й Email'}</label>
-                                    <a href={`mailto:${value}`} className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline break-words p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50 block hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm">{String(value)}</a>
-                                </div>
+                                  <div key={key}>
+                                      <span className="text-xs font-bold text-gray-500 uppercase block mb-1">{key === 'email' ? 'Почта' : '2-я Почта'}</span>
+                                      <a href={`mailto:${value}`} className="font-medium text-primary-600 hover:underline flex items-center gap-1"><Mail className="w-3 h-3"/> {String(value)}</a>
+                                  </div>
                               );
                           }
-                          // Custom labels
-                          let label = key;
-                          if(key === 'bin') label = 'БИН';
-                          if(key === 'director') label = 'Руководитель';
-                          if(key === 'industry') label = 'Отрасль';
-                          if(key === 'address') label = 'Адрес';
-                          if(key === 'website') label = 'Сайт';
-                          if(key === 'createdAt') label = 'Дата создания';
-                          if(key === 'lastContactDate') label = 'Последняя связь';
-                          if(key === 'organization') label = 'Компания';
-                          if(key === 'position') label = 'Должность';
-                          if(key === 'clientName') label = 'Клиент';
-                          if(key === 'title') label = 'Название';
-                          if(key === 'value') label = 'Сумма';
-                          if(key === 'stage') label = 'Этап';
-                          if(key === 'expectedClose') label = 'Ожидаемая дата';
-
-
+                          // Friendly Labels
+                          const labelMap: any = { title: 'Название', clientName: 'Клиент', value: 'Сумма', stage: 'Статус', name: 'Имя', industry: 'Отрасль', address: 'Адрес', bin: 'БИН', website: 'Сайт', director: 'Руководитель', position: 'Должность', organization: 'Компания', subject: 'Тема', type: 'Тип', date: 'Дата', status: 'Статус', createdAt: 'Дата создания', lastContactDate: 'Последний контакт', expectedClose: 'Ожидаемое закрытие' };
+                          
                           return (
-                              <div key={key} className="col-span-2 sm:col-span-1">
-                                  <label className="text-xs font-bold uppercase text-gray-400 dark:text-gray-500 mb-1.5 block tracking-wider">{label}</label>
-                                  <div className="text-sm font-medium text-gray-900 dark:text-white break-words p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50 shadow-sm">{String(value)}</div>
+                              <div key={key} className="col-span-1">
+                                  <span className="text-xs font-bold text-gray-500 uppercase block mb-1">{labelMap[key] || key}</span>
+                                  <span className="font-medium text-gray-900 dark:text-white">{key === 'value' ? `₸${Number(value).toLocaleString()}` : String(value)}</span>
                               </div>
-                          )
+                          );
                       })}
                    </div>
 
-                   {/* Linked Contacts for Company */}
+                   {/* Linked Contacts Logic (if Company) */}
                    {activeTab === 'COMPANIES' && (
-                     <div className="border-t border-gray-100 dark:border-gray-700 pt-6">
-                        <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4">Связанные контакты</h3>
-                        <div className="space-y-3">
-                           {getLinkedContacts(selectedItem.id).length > 0 ? (
-                             getLinkedContacts(selectedItem.id).map(contact => (
-                               <div key={contact.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-2xl border border-gray-100 dark:border-gray-700/50 hover:border-primary-500/30 transition-colors shadow-sm">
-                                  <div className="flex items-center gap-3">
-                                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 flex items-center justify-center text-primary-700 dark:text-primary-300 font-bold text-sm shadow-inner">
-                                        {contact.name.charAt(0)}
-                                     </div>
-                                     <div>
-                                        <p className="text-sm font-bold text-gray-900 dark:text-white">{contact.name}</p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">{contact.position}</p>
-                                     </div>
-                                  </div>
-                                  <div className="flex gap-2">
-                                      <a href={`tel:${contact.phone}`} className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400"><Phone className="w-3.5 h-3.5"/></a>
-                                      <a href={`mailto:${contact.email}`} className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400"><Mail className="w-3.5 h-3.5"/></a>
-                                  </div>
-                               </div>
-                             ))
-                           ) : (
-                             <p className="text-sm text-gray-500 italic text-center py-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">Нет связанных контактов.</p>
-                           )}
-                        </div>
-                     </div>
+                       <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
+                           <h4 className="font-bold text-gray-900 dark:text-white mb-3">Связанные люди</h4>
+                           <div className="space-y-2">
+                               {getLinkedContacts(selectedItem.id).map(c => (
+                                   <div key={c.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl flex justify-between items-center">
+                                       <div>
+                                           <div className="font-bold text-sm text-gray-900 dark:text-white">{c.name}</div>
+                                           <div className="text-xs text-gray-500">{c.position}</div>
+                                       </div>
+                                       <a href={`tel:${c.phone}`} className="p-2 bg-white dark:bg-gray-600 rounded-full shadow-sm text-primary-600"><Phone className="w-3 h-3"/></a>
+                                   </div>
+                               ))}
+                               {getLinkedContacts(selectedItem.id).length === 0 && <span className="text-sm text-gray-400">Нет связанных людей</span>}
+                           </div>
+                       </div>
                    )}
                </div>
-
-               <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-3 bg-gray-50/50 dark:bg-gray-900/50">
-                   <button 
-                     onClick={() => { setIsDetailModalOpen(false); openModal(selectedItem); }}
-                     className="px-5 py-2.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center gap-2 shadow-sm border border-gray-200 dark:border-gray-600 transition-all font-medium"
-                   >
-                       <Pencil className="w-4 h-4" /> Редактировать
-                   </button>
+               
+               <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 flex gap-3">
+                   <button onClick={() => { setIsDetailModalOpen(false); openModal(selectedItem); }} className="flex-1 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl font-bold shadow-sm hover:shadow-md transition-all text-gray-700 dark:text-white">Редактировать</button>
+                   {/* Call/Email Buttons */}
+                   {selectedItem.phone && (
+                       <a href={`tel:${selectedItem.phone}`} className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-lg shadow-green-500/20 transition-all text-center flex items-center justify-center gap-2">
+                           <Phone className="w-4 h-4"/> Позвонить
+                       </a>
+                   )}
                </div>
            </div>
         </div>

@@ -1,6 +1,35 @@
 
+import { Task, TaskStatus, Deal, DealStage, DocumentItem, Article, SystemLog, Company, Contact, CrmActivity, TeamMember, Project, AppPermissions } from './types';
 
-import { Task, TaskStatus, Deal, DealStage, DocumentItem, Article, SystemLog, Company, Contact, CrmActivity, TeamMember } from './types';
+// New: Permissions Matrix
+export const INITIAL_PERMISSIONS: AppPermissions = {
+    ADMIN: {
+        CRM: { READ: true, CREATE: true, UPDATE: true, DELETE: true, EXPORT: true, IMPORT: true },
+        PROJECTS: { READ: true, CREATE: true, UPDATE: true, DELETE: true },
+        DOCUMENTS: { READ: true, CREATE: true, UPDATE: true, DELETE: true },
+        SETTINGS: { READ: true, UPDATE: true }
+    },
+    MANAGER: {
+        CRM: { READ: true, CREATE: true, UPDATE: true, DELETE: false, EXPORT: true, IMPORT: false },
+        PROJECTS: { READ: true, CREATE: true, UPDATE: true, DELETE: false },
+        DOCUMENTS: { READ: true, CREATE: true, UPDATE: true, DELETE: false },
+        SETTINGS: { READ: false }
+    },
+    EMPLOYEE: {
+        CRM: { READ: true, CREATE: true, UPDATE: false, DELETE: false, EXPORT: false, IMPORT: false },
+        PROJECTS: { READ: true, CREATE: false, UPDATE: true, DELETE: false },
+        DOCUMENTS: { READ: true, CREATE: true, UPDATE: false, DELETE: false },
+        SETTINGS: { READ: false }
+    }
+};
+
+// New: Projects with Access
+export const INITIAL_PROJECTS: Project[] = [
+    { id: 'p1', name: 'ТЦ Риверсайд', access: 'PUBLIC', allowedUsers: [] },
+    { id: 'p2', name: 'Городской Мост', access: 'PUBLIC', allowedUsers: [] },
+    { id: 'p3', name: 'Внутренние', access: 'PRIVATE', allowedUsers: ['u1', 'u2'] }, // Private to Admin & Manager
+    { id: 'p4', name: 'Комплаенс', access: 'PUBLIC', allowedUsers: [] }
+];
 
 export const INITIAL_TASKS: Task[] = [
   { id: 't1', title: 'Схемы ОВК (HVAC)', description: 'Доработать схемы вентиляции для ТЦ Риверсайд.', assignee: 'Алексей М.', observer: 'Админ', dueDate: '2023-11-15', status: TaskStatus.IN_PROGRESS, priority: 'Высокий', project: 'ТЦ Риверсайд' },

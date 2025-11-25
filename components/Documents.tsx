@@ -1,7 +1,7 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { DocumentItem, User } from '../types';
-import { FileText, Download, HardDrive, File, Image, Trash2, Info, Upload, X, Search, FileUp } from 'lucide-react';
+import { FileText, Download, HardDrive, File as FileIcon, Image, Trash2, Info, Upload, X, Search, FileUp, Eye } from 'lucide-react';
 
 interface DocumentsProps {
   docs: DocumentItem[];
@@ -13,19 +13,58 @@ interface DocumentsProps {
 
 const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocument, searchQuery, currentUser }) => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<DocumentItem | null>(null);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sourceContext, setSourceContext] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const filteredDocs = docs.filter(d => d.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  // Local file registry to store actual File objects for session preview/download
+  const [fileRegistry, setFileRegistry] = useState<Record<string, File>>({});
+
+  useEffect(() => {
+     // Auto-fill context/type if a folder is active when opening upload modal
+     if (isUploadModalOpen && activeFilter) {
+         if (activeFilter === 'Чертежи') setSourceContext('Чертежи');
+         else if (activeFilter === 'Договоры') setSourceContext('Договор');
+         else if (activeFilter === 'Бухгалтерия') setSourceContext('Финансы');
+         else if (activeFilter !== 'Все') setSourceContext(activeFilter);
+     } else if (!isUploadModalOpen) {
+         setSourceContext('');
+         setSelectedFile(null);
+     }
+  }, [isUploadModalOpen, activeFilter]);
+
+
+  // Filter Logic
+  const filteredDocs = docs.filter(d => {
+      const matchesSearch = d.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesFilter = activeFilter ? (
+          activeFilter === 'Чертежи' ? d.type === 'DWG' :
+          activeFilter === 'Договоры' ? (d.type === 'PDF' && d.name.toLowerCase().includes('договор')) : // heuristic
+          activeFilter === 'Бухгалтерия' ? d.type === 'XLSX' :
+          true // HR not mapped strictly in this example
+      ) : true;
+      return matchesSearch && matchesFilter;
+  });
+
+  // Count files for folders (mock logic based on types)
+  const getCount = (folder: string) => {
+      if (folder === 'Чертежи') return docs.filter(d => d.type === 'DWG').length;
+      if (folder === 'Договоры') return docs.filter(d => d.type === 'PDF').length; // simple proxy
+      if (folder === 'Бухгалтерия') return docs.filter(d => d.type === 'XLSX').length;
+      return docs.length;
+  };
 
   const getIcon = (type: string) => {
     switch (type) {
       case 'PDF': return <div className="p-2.5 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600"><FileText className="w-6 h-6" /></div>;
       case 'DWG': return <div className="p-2.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600"><Image className="w-6 h-6" /></div>;
       case 'XLSX': return <div className="p-2.5 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600"><FileText className="w-6 h-6" /></div>;
-      default: return <div className="p-2.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600"><File className="w-6 h-6" /></div>;
+      default: return <div className="p-2.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600"><FileIcon className="w-6 h-6" /></div>;
     }
   };
 
@@ -74,16 +113,26 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
       const typeMap: any = { 'pdf': 'PDF', 'dwg': 'DWG', 'xlsx': 'XLSX', 'docx': 'DOCX' };
       const ext = selectedFile.name.split('.').pop()?.toLowerCase() || 'file';
       
+      // Determine type based on filter if not obvious from ext, or default to ext
+      let type = typeMap[ext] || ext.toUpperCase().substring(0, 4);
+      if (activeFilter === 'Чертежи') type = 'DWG';
+      
+      const newDocId = `doc${Date.now()}`;
+
       const newDoc: DocumentItem = {
-          id: `doc${Date.now()}`,
+          id: newDocId,
           name: selectedFile.name,
-          type: typeMap[ext] || ext.toUpperCase().substring(0, 4),
+          type: type,
           size: formatFileSize(selectedFile.size),
           updatedAt: new Date().toISOString(),
           author: currentUser.name,
           authorId: currentUser.id,
           source: sourceContext || 'Ручная загрузка'
       };
+
+      // Store file in local registry for this session
+      setFileRegistry(prev => ({...prev, [newDocId]: selectedFile}));
+
       onAddDocument(newDoc);
       setIsUploadModalOpen(false);
       setSelectedFile(null);
@@ -95,6 +144,43 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
       const isAdmin = currentUser.role === 'ADMIN';
       const isAuthor = doc.authorId === currentUser.id;
       return isAdmin || isAuthor;
+  };
+
+  const handleDownload = (doc: DocumentItem) => {
+      const file = fileRegistry[doc.id];
+      if (file) {
+          // Download actual file
+          const url = URL.createObjectURL(file);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = doc.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+      } else {
+          // Create dummy file for mock data
+          const text = `Это пример содержимого файла "${doc.name}".\n\nВ реальном приложении здесь был бы бинарный контент.`;
+          const blob = new Blob([text], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${doc.name}.txt`; // Append txt to show it's a dummy
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          alert('Скачан пример файла (так как реальный файл отсутствует на сервере).');
+      }
+  };
+
+  const handlePreview = (doc: DocumentItem) => {
+      if (doc.type === 'PDF') {
+          setPreviewDoc(doc);
+          setIsPreviewModalOpen(true);
+      } else {
+          alert('Предпросмотр доступен только для PDF файлов');
+      }
   };
 
   return (
@@ -113,20 +199,28 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-8">
-         {/* Quick Access Folders */}
-         {['Чертежи', 'Договоры', 'Бухгалтерия', 'HR'].map((folder, idx) => (
-           <div key={folder} className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
+         {/* Quick Access Folders - Clickable Filters */}
+         {['Чертежи', 'Договоры', 'Бухгалтерия', 'Все'].map((folder, idx) => (
+           <div 
+             key={folder} 
+             onClick={() => setActiveFilter(folder === 'Все' ? null : folder)}
+             className={`p-5 rounded-2xl border transition-all duration-300 cursor-pointer group hover:-translate-y-1 ${
+               (activeFilter === folder || (folder === 'Все' && activeFilter === null))
+               ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-500 ring-1 ring-primary-500'
+               : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700/50 hover:shadow-xl'
+             }`}
+           >
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 bg-gradient-to-br ${
                   idx === 0 ? 'from-blue-100 to-blue-200 text-blue-600' :
                   idx === 1 ? 'from-purple-100 to-purple-200 text-purple-600' :
                   idx === 2 ? 'from-green-100 to-green-200 text-green-600' :
-                  'from-orange-100 to-orange-200 text-orange-600'
+                  'from-gray-100 to-gray-200 text-gray-600'
               } dark:bg-opacity-10 dark:text-opacity-90`}>
                 <HardDrive className="w-6 h-6" />
               </div>
               <div>
                 <h4 className="font-bold text-gray-900 dark:text-white group-hover:text-primary-600 transition-colors">{folder}</h4>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">12 файлов</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{getCount(folder)} файлов</p>
               </div>
            </div>
          ))}
@@ -164,7 +258,12 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
               <div className="hidden md:block col-span-1 text-sm text-gray-500 dark:text-gray-400 font-mono">{doc.size}</div>
               
               <div className="col-span-12 md:col-span-1 flex justify-end gap-2 mt-2 md:mt-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button className="p-2 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors" title="Скачать">
+                 {doc.type === 'PDF' && (
+                     <button onClick={() => handlePreview(doc)} className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Предпросмотр">
+                         <Eye className="w-5 h-5" />
+                     </button>
+                 )}
+                <button onClick={() => handleDownload(doc)} className="p-2 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors" title="Скачать">
                   <Download className="w-5 h-5" />
                 </button>
                 {canDelete(doc) && (
@@ -247,6 +346,35 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
                </form>
            </div>
         </div>
+      )}
+
+      {/* Preview Modal */}
+      {isPreviewModalOpen && previewDoc && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-md p-4 animate-fade-in">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden">
+                  <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
+                      <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                          <Eye className="w-4 h-4" /> Предпросмотр: {previewDoc.name}
+                      </h3>
+                      <button onClick={() => setIsPreviewModalOpen(false)} className="text-gray-500 hover:text-gray-900 dark:hover:text-white"><X className="w-5 h-5"/></button>
+                  </div>
+                  <div className="flex-1 bg-gray-200 dark:bg-gray-900 flex items-center justify-center p-4">
+                      {fileRegistry[previewDoc.id] ? (
+                          <iframe 
+                              src={URL.createObjectURL(fileRegistry[previewDoc.id])} 
+                              className="w-full h-full bg-white rounded-lg shadow-inner" 
+                              title="PDF Preview"
+                          />
+                      ) : (
+                        <div className="text-center">
+                            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                            <p className="text-gray-500 dark:text-gray-400 mb-4 font-bold">Файл отсутствует на сервере</p>
+                            <p className="text-sm text-gray-400 max-w-md">Это демонстрационная версия. Реальный предпросмотр работает только для файлов, загруженных в текущей сессии.</p>
+                        </div>
+                      )}
+                  </div>
+              </div>
+          </div>
       )}
     </div>
   );

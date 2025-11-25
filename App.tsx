@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { ModuleType, Task, Deal, DocumentItem, Article, SystemLog, TaskStatus, Company, Contact, CrmActivity, User, TeamMember } from './types';
+import { ModuleType, Task, Deal, DocumentItem, Article, SystemLog, TaskStatus, Company, Contact, CrmActivity, User, TeamMember, Project, AppPermissions, CrmUserSettings } from './types';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import CRM from './components/CRM';
@@ -12,6 +11,7 @@ import Settings from './components/Settings';
 import Login from './components/Login';
 import MobileNav from './components/MobileNav';
 import { Search, Sun, Moon, User as UserIcon, Settings as SettingsIcon, LogOut, RefreshCw, Loader2 } from 'lucide-react';
+import { INITIAL_PERMISSIONS, INITIAL_PROJECTS } from './constants';
 
 // Firebase Imports
 import { auth, db } from './firebase';
@@ -60,7 +60,8 @@ const App: React.FC = () => {
 
   // Data State (From Firestore)
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [projects, setProjects] = useState<string[]>([]);
+  // Use explicit Project[] type
+  const [projects, setProjects] = useState<Project[]>([]); 
   const [deals, setDeals] = useState<Deal[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -69,6 +70,9 @@ const App: React.FC = () => {
   const [articles, setArticles] = useState<Article[]>([]);
   const [logs, setLogs] = useState<SystemLog[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
+  
+  // Permissions State (Local for now, or synced)
+  const [permissions, setPermissions] = useState<AppPermissions>(INITIAL_PERMISSIONS);
 
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -123,12 +127,23 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // Tasks & Projects
+    // Tasks
     const unsubTasks = onSnapshot(collection(db, 'tasks'), (snapshot) => {
-      const tasksData = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Task));
-      setTasks(tasksData);
-      const uniqueProjects = Array.from(new Set<string>(tasksData.map(t => t.project).filter((p): p is string => !!p))).sort();
-      setProjects(uniqueProjects);
+      setTasks(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Task)));
+    });
+
+    // Projects: For simplicity, we can start with INITIAL_PROJECTS if DB is empty, or sync with DB.
+    // Here we'll try to sync with 'projects' collection.
+    // If you want persistence for projects, you should add them to DB.
+    // For now, let's just initialize state if empty, but real app would use onSnapshot.
+    // Simulating listener for projects (using local state + initial constants for now if DB not populated)
+    const unsubProjects = onSnapshot(collection(db, 'projects'), (snapshot) => {
+        if (!snapshot.empty) {
+            setProjects(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Project)));
+        } else {
+            // Seed initial projects if needed or just set empty
+             setProjects(INITIAL_PROJECTS);
+        }
     });
 
     // Deals
@@ -144,6 +159,11 @@ const App: React.FC = () => {
     // Contacts
     const unsubContacts = onSnapshot(collection(db, 'contacts'), (snapshot) => {
       setContacts(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Contact)));
+    });
+
+    // Activities
+    const unsubActivities = onSnapshot(collection(db, 'activities'), (snapshot) => {
+        setActivities(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CrmActivity)));
     });
 
     // Documents
@@ -169,9 +189,11 @@ const App: React.FC = () => {
 
     return () => {
       unsubTasks();
+      unsubProjects();
       unsubDeals();
       unsubCompanies();
       unsubContacts();
+      unsubActivities();
       unsubDocs();
       unsubKB();
       unsubTeam();
@@ -228,6 +250,22 @@ const App: React.FC = () => {
       addLog('Обновил данные профиля', 'SETTINGS');
   };
 
+  const handleUpdateCrmSettings = async (settings: CrmUserSettings) => {
+      if (!currentUser.id) return;
+      // We store this in the user document
+      const userRef = doc(db, 'users', currentUser.id);
+      await updateDoc(userRef, { crmSettings: settings });
+      setCurrentUser(prev => ({...prev, crmSettings: settings}));
+      addLog('Обновил настройки таблиц CRM', 'CRM');
+  };
+
+  const handleUpdatePermissions = (newPermissions: AppPermissions) => {
+      // In a real app, this would be saved to Firestore (e.g., 'system_settings' collection)
+      // For this mock, we just update local state
+      setPermissions(newPermissions);
+      addLog('Обновил права доступа ролей', 'SETTINGS');
+  };
+
   const handleUpdateAppSettings = (newSettings: any) => {
       setAppSettings(prev => ({...prev, ...newSettings}));
   };
@@ -252,11 +290,17 @@ const App: React.FC = () => {
   };
 
   // --- Task & Project Handlers ---
-  const handleAddProject = (name: string) => {
-      if (!projects.includes(name)) {
-          setProjects(prev => [...prev, name].sort());
-          addLog(`Создан проект (локально): ${name}`, 'PROJECTS');
-      }
+  const handleAddProject = async (project: Project) => {
+      const { id, ...data } = project;
+      await addDoc(collection(db, 'projects'), sanitizeForFirestore(data));
+      addLog(`Создан проект: ${project.name}`, 'PROJECTS');
+  };
+  
+  const handleUpdateProject = async (project: Project) => {
+      const ref = doc(db, 'projects', project.id);
+      const { id, ...data } = project;
+      await updateDoc(ref, sanitizeForFirestore(data));
+      addLog(`Обновлен проект: ${project.name}`, 'PROJECTS');
   };
 
   const handleTaskUpdate = async (taskId: string, newStatus: TaskStatus) => {
@@ -333,6 +377,12 @@ const App: React.FC = () => {
     await deleteDoc(doc(db, 'contacts', id));
     addLog(`Удален контакт`, 'CRM');
   };
+  
+  const handleAddActivity = async (activity: CrmActivity) => {
+      const { id, ...data } = activity;
+      await addDoc(collection(db, 'activities'), sanitizeForFirestore(data));
+      addLog(`Создано действие: ${activity.subject}`, 'CRM');
+  };
 
   // --- Document Handlers ---
   const handleAddDocument = async (docItem: DocumentItem) => {
@@ -381,6 +431,8 @@ const App: React.FC = () => {
             onAddCompany={handleAddCompany} onUpdateCompany={handleUpdateCompany} onDeleteCompany={handleDeleteCompany}
             onAddContact={handleAddContact} onUpdateContact={handleUpdateContact} onDeleteContact={handleDeleteContact}
             searchQuery={searchQuery}
+            currentUser={currentUser}
+            onUpdateCrmSettings={handleUpdateCrmSettings}
           />
         );
       case ModuleType.PROJECTS:
@@ -391,13 +443,14 @@ const App: React.FC = () => {
            onAddTask={handleAddTask} 
            onDeleteTask={handleDeleteTask} 
            onAddProject={handleAddProject}
+           onUpdateProject={handleUpdateProject}
            searchQuery={searchQuery} 
            currentUser={currentUser} 
            openEditTask={handleEditTaskRequest}
            team={team}
         />;
       case ModuleType.CALENDAR:
-        return <Calendar tasks={tasks} onAddTask={handleAddTask} onEditTask={handleEditTaskRequest} />;
+        return <Calendar tasks={tasks} onAddTask={handleAddTask} onEditTask={handleEditTaskRequest} onAddActivity={handleAddActivity} />;
       case ModuleType.DOCUMENTS:
         return <Documents docs={docs} onAddDocument={handleAddDocument} onDeleteDocument={handleDeleteDocument} searchQuery={searchQuery} currentUser={currentUser} />;
       case ModuleType.KNOWLEDGE:
@@ -418,6 +471,8 @@ const App: React.FC = () => {
            onAddTeamMember={handleAddTeamMember}
            onUpdateTeamMember={handleUpdateTeamMember}
            onDeleteTeamMember={handleDeleteTeamMember}
+           permissions={permissions}
+           onUpdatePermissions={handleUpdatePermissions}
         />;
       default:
         return <div>Модуль не найден</div>;
@@ -452,10 +507,8 @@ const App: React.FC = () => {
                 activeModule === ModuleType.KNOWLEDGE ? 'База знаний' : 
                 activeModule === ModuleType.SETTINGS ? 'Настройки' : ''}
             </div>
-          </div>
-
-          <div className="flex items-center gap-2 md:gap-4">
-            {/* Search Bar */}
+            
+            {/* Search Bar - Moved Left and Resized */}
             <div className="hidden md:flex items-center bg-gray-100 dark:bg-gray-700 rounded-full px-4 py-1.5 border border-transparent focus-within:border-primary-500 focus-within:bg-white dark:focus-within:bg-gray-800 transition-all">
               <Search className="w-4 h-4 text-gray-400" />
               <input 
@@ -463,10 +516,12 @@ const App: React.FC = () => {
                 placeholder="Поиск..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent border-none outline-none text-sm ml-2 text-gray-700 dark:text-gray-200 w-64 placeholder-gray-400" 
+                className="bg-transparent border-none outline-none text-sm ml-2 text-gray-700 dark:text-gray-200 w-32 placeholder-gray-400" 
               />
             </div>
-            
+          </div>
+
+          <div className="flex items-center gap-2 md:gap-4">
             <button className="md:hidden p-2 text-gray-600 dark:text-gray-300">
                <Search className="w-5 h-5" />
             </button>
@@ -485,7 +540,7 @@ const App: React.FC = () => {
               >
                 <div className="text-right hidden md:block">
                   <p className="text-sm font-medium text-gray-900 dark:text-white">{currentUser.name || 'Пользователь'}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 text-right truncate max-w-[100px]">{currentUser.email}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-right truncate max-w-[150px]">{currentUser.email}</p>
                 </div>
                 <div className="w-9 h-9 rounded-full bg-primary-500 flex items-center justify-center text-gray-900 font-bold shadow-md border-2 border-primary-400">
                   {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
@@ -497,6 +552,7 @@ const App: React.FC = () => {
                 <div className="absolute right-0 top-12 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-2 animate-fade-in z-50">
                   <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 md:hidden">
                     <p className="font-medium text-gray-900 dark:text-white">{currentUser.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{currentUser.email}</p>
                   </div>
                   <button onClick={() => { setActiveModule(ModuleType.SETTINGS); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
                     <SettingsIcon className="w-4 h-4" /> Настройки

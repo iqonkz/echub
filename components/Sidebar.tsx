@@ -10,14 +10,14 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activeModule, onNavigate, onLogout }) => {
+  // Removed Settings from the main list to render it separately at bottom
   const navItems = [
     { id: ModuleType.HOME, label: 'Главная', icon: Home },
+    { id: ModuleType.PROJECTS, label: 'Проекты и задачи', icon: FolderKanban },
     { id: ModuleType.CRM, label: 'CRM', icon: Briefcase },
-    { id: ModuleType.PROJECTS, label: 'Задачи и Проекты', icon: FolderKanban },
     { id: ModuleType.CALENDAR, label: 'Календарь', icon: Calendar },
     { id: ModuleType.DOCUMENTS, label: 'Документы', icon: FileText },
     { id: ModuleType.KNOWLEDGE, label: 'База знаний', icon: Book },
-    { id: ModuleType.SETTINGS, label: 'Настройки', icon: Settings },
   ];
 
   const getActiveStyle = (id: ModuleType) => {
@@ -31,6 +31,24 @@ const Sidebar: React.FC<SidebarProps> = ({ activeModule, onNavigate, onLogout })
       case ModuleType.SETTINGS: return 'bg-gradient-to-r from-gray-700 to-gray-800 text-white shadow-lg shadow-gray-700/30';
       default: return 'bg-primary-500 text-gray-900';
     }
+  };
+
+  const renderButton = (item: any) => {
+    const isActive = activeModule === item.id;
+    return (
+      <button
+        key={item.id}
+        onClick={() => onNavigate(item.id)}
+        className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-2xl transition-all duration-200 group ${
+          isActive
+            ? getActiveStyle(item.id)
+            : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
+        }`}
+      >
+        <item.icon className={`w-5 h-5 transition-transform duration-200 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
+        {item.label}
+      </button>
+    );
   };
 
   return (
@@ -72,24 +90,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activeModule, onNavigate, onLogout })
       </div>
 
       <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
-        {navItems.map((item) => {
-          const isActive = activeModule === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => onNavigate(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-2xl transition-all duration-200 group ${
-                isActive
-                  ? getActiveStyle(item.id)
-                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              <item.icon className={`w-5 h-5 transition-transform duration-200 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
-              {item.label}
-            </button>
-          );
-        })}
+        {navItems.map((item) => renderButton(item))}
       </nav>
+
+      {/* Settings at the bottom */}
+      <div className="px-4 py-4 space-y-2">
+         {renderButton({ id: ModuleType.SETTINGS, label: 'Настройки', icon: Settings })}
+      </div>
       
       <div className="p-4 border-t border-gray-100 dark:border-gray-700 text-[10px] text-center text-gray-400 dark:text-gray-600 font-medium">
          Engineering Centre v1.0

@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { User, Bell, Lock, Moon, Sun, LogOut, Activity, Smartphone, Type, Monitor, Send, Save, Users, Plus, Edit, Trash2, X } from 'lucide-react';
-import { SystemLog, ModuleType, User as UserType, TeamMember } from '../types';
+import { User, Bell, Lock, Moon, Sun, LogOut, Activity, Smartphone, Type, Monitor, Send, Save, Users, Plus, Edit, Trash2, X, Laptop, Shield, Key } from 'lucide-react';
+import { SystemLog, ModuleType, User as UserType, TeamMember, AppRole, PermissionAction, AppPermissions } from '../types';
+import { INITIAL_PERMISSIONS } from '../constants';
 
 interface SettingsProps {
   currentUser: UserType;
@@ -21,13 +22,15 @@ interface SettingsProps {
   onAddTeamMember: (member: TeamMember) => void;
   onUpdateTeamMember: (member: TeamMember) => void;
   onDeleteTeamMember: (id: string) => void;
+  permissions?: AppPermissions;
+  onUpdatePermissions?: (permissions: AppPermissions) => void;
 }
 
 const Settings: React.FC<SettingsProps> = ({ 
     currentUser, onUpdateProfile, onLogout, isDarkMode, toggleTheme, logs, mobileMenuConfig, onUpdateMobileConfig,
-    appSettings, onUpdateAppSettings, team, onAddTeamMember, onUpdateTeamMember, onDeleteTeamMember
+    appSettings, onUpdateAppSettings, team, onAddTeamMember, onUpdateTeamMember, onDeleteTeamMember, permissions, onUpdatePermissions
 }) => {
-  const [activeTab, setActiveTab] = useState<'PROFILE' | 'APPEARANCE' | 'TEAM' | 'LOGS' | 'MOBILE'>('PROFILE');
+  const [activeTab, setActiveTab] = useState<'PROFILE' | 'APPEARANCE' | 'TEAM' | 'RIGHTS' | 'LOGS' | 'MOBILE'>('PROFILE');
   
   // Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -41,6 +44,9 @@ const Settings: React.FC<SettingsProps> = ({
   // CRM Invite State
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteSent, setInviteSent] = useState(false);
+
+  // Local permissions state for editing (if needed), though we can pass directly
+  // Using 'permissions' prop directly.
 
   const toggleModule = (module: ModuleType) => {
      if (!mobileMenuConfig || !onUpdateMobileConfig) return;
@@ -96,6 +102,22 @@ const Settings: React.FC<SettingsProps> = ({
       setIsTeamModalOpen(false);
   };
 
+  // Permission Handlers
+  const togglePermission = (role: AppRole, module: string, action: PermissionAction) => {
+      if (!permissions || !onUpdatePermissions) return;
+      
+      const newPermissions = { ...permissions };
+      // Deep clone to avoid mutation issues
+      const rolePerms = { ...newPermissions[role] };
+      const modulePerms = { ...rolePerms[module] };
+      
+      modulePerms[action] = !modulePerms[action];
+      rolePerms[module] = modulePerms;
+      newPermissions[role] = rolePerms;
+
+      onUpdatePermissions(newPermissions);
+  };
+
   const availableModules = [
     { id: ModuleType.HOME, label: 'Главная' },
     { id: ModuleType.PROJECTS, label: 'Проекты' },
@@ -103,6 +125,23 @@ const Settings: React.FC<SettingsProps> = ({
     { id: ModuleType.CALENDAR, label: 'Календарь' },
     { id: ModuleType.DOCUMENTS, label: 'Документы' },
     { id: ModuleType.KNOWLEDGE, label: 'База знаний' }
+  ];
+
+  // Mock Login History
+  const loginHistory = [
+      { id: 1, device: 'MacBook Pro', ip: '192.168.1.105', time: 'Сейчас', active: true },
+      { id: 2, device: 'iPhone 14', ip: '10.0.0.5', time: '2 часа назад', active: false },
+      { id: 3, device: 'Windows PC', ip: '172.16.0.23', time: 'Вчера, 14:30', active: false },
+  ];
+
+  const modulesForPermissions = ['CRM', 'PROJECTS', 'DOCUMENTS', 'SETTINGS'];
+  const actionsForPermissions: {key: PermissionAction, label: string}[] = [
+      {key: 'READ', label: 'Чтение'},
+      {key: 'CREATE', label: 'Добавление'},
+      {key: 'UPDATE', label: 'Изменение'},
+      {key: 'DELETE', label: 'Удаление'},
+      {key: 'EXPORT', label: 'Экспорт'},
+      {key: 'IMPORT', label: 'Импорт'}
   ];
 
   return (
@@ -114,7 +153,12 @@ const Settings: React.FC<SettingsProps> = ({
         </div>
         <div className="flex bg-white dark:bg-gray-800 p-1.5 rounded-2xl overflow-x-auto max-w-full no-scrollbar shadow-sm border border-gray-200 dark:border-gray-700">
           <button onClick={() => setActiveTab('PROFILE')} className={`px-4 py-2 text-sm rounded-xl whitespace-nowrap transition-all font-medium ${activeTab === 'PROFILE' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Профиль</button>
-          <button onClick={() => setActiveTab('TEAM')} className={`px-4 py-2 text-sm rounded-xl whitespace-nowrap transition-all font-medium ${activeTab === 'TEAM' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Команда</button>
+          {currentUser.role === 'ADMIN' && (
+              <>
+                <button onClick={() => setActiveTab('TEAM')} className={`px-4 py-2 text-sm rounded-xl whitespace-nowrap transition-all font-medium ${activeTab === 'TEAM' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Команда</button>
+                <button onClick={() => setActiveTab('RIGHTS')} className={`px-4 py-2 text-sm rounded-xl whitespace-nowrap transition-all font-medium ${activeTab === 'RIGHTS' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Права</button>
+              </>
+          )}
           <button onClick={() => setActiveTab('APPEARANCE')} className={`px-4 py-2 text-sm rounded-xl whitespace-nowrap transition-all font-medium ${activeTab === 'APPEARANCE' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Внешний вид</button>
           <button onClick={() => setActiveTab('MOBILE')} className={`px-4 py-2 text-sm rounded-xl whitespace-nowrap transition-all font-medium ${activeTab === 'MOBILE' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Меню</button>
           <button onClick={() => setActiveTab('LOGS')} className={`px-4 py-2 text-sm rounded-xl whitespace-nowrap transition-all font-medium ${activeTab === 'LOGS' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Логи</button>
@@ -164,13 +208,51 @@ const Settings: React.FC<SettingsProps> = ({
                       <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-100 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800">
                         {currentUser.role === 'ADMIN' ? 'Администратор' : 'Пользователь'}
                       </span>
-                      <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800">
-                        Руководитель проектов
-                      </span>
                   </div>
                 </div>
               </div>
           )}
+        </div>
+
+        {/* Security / Login History */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
+                    <Shield className="w-5 h-5 text-indigo-500" />
+                </div>
+                Безопасность
+            </h3>
+            
+            <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">История входов</h4>
+            <div className="space-y-4">
+                {loginHistory.map(login => (
+                    <div key={login.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                                {login.device.includes('iPhone') || login.device.includes('Android') ? <Smartphone className="w-5 h-5 text-gray-500" /> : <Laptop className="w-5 h-5 text-gray-500" />}
+                            </div>
+                            <div>
+                                <p className="font-bold text-gray-900 dark:text-white text-sm">{login.device}</p>
+                                <p className="text-xs text-gray-500">{login.ip} • {login.time}</p>
+                            </div>
+                        </div>
+                        {login.active ? (
+                            <span className="text-xs font-bold text-green-600 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-md">Активен</span>
+                        ) : (
+                             <span className="text-xs font-medium text-gray-400">Завершен</span>
+                        )}
+                    </div>
+                ))}
+            </div>
+
+             <div className="border-t border-gray-100 dark:border-gray-700 mt-6 pt-6">
+                 <button 
+                   onClick={onLogout}
+                   className="flex items-center gap-2 text-red-600 hover:text-red-700 font-bold px-5 py-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-all w-full md:w-auto justify-center"
+                 >
+                    <LogOut className="w-5 h-5" /> Выйти из всех устройств
+                 </button>
+              </div>
         </div>
 
         {/* CRM Invite Section */}
@@ -197,25 +279,72 @@ const Settings: React.FC<SettingsProps> = ({
             </form>
             {inviteSent && <p className="text-sm font-bold text-green-500 mt-3 flex items-center gap-2 animate-fade-in"><span className="w-2 h-2 rounded-full bg-green-500"></span> Приглашение успешно отправлено!</p>}
         </div>
-
-        {/* Account Actions */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
-           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-            <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-xl">
-                <Lock className="w-5 h-5 text-red-500" /> 
-            </div>
-            Безопасность
-          </h3>
-          <div className="border-t border-gray-100 dark:border-gray-700 pt-6">
-             <button 
-               onClick={onLogout}
-               className="flex items-center gap-2 text-red-600 hover:text-red-700 font-bold px-5 py-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-all w-full md:w-auto justify-center"
-             >
-                <LogOut className="w-5 h-5" /> Выйти из аккаунта
-             </button>
-          </div>
-        </div>
       </div>
+      )}
+
+      {activeTab === 'RIGHTS' && currentUser.role === 'ADMIN' && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
+               <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      <Key className="w-5 h-5 text-primary-500" /> Права доступа
+                  </h3>
+              </div>
+              
+              <div className="overflow-x-auto">
+                  {/* Permissions Matrix */}
+                  <table className="w-full text-left text-sm">
+                     <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs font-bold border-b border-gray-200 dark:border-gray-700">
+                         <tr>
+                             <th className="px-6 py-4">Модуль / Действие</th>
+                             <th className="px-6 py-4 text-center">Администратор</th>
+                             <th className="px-6 py-4 text-center">Менеджер</th>
+                             <th className="px-6 py-4 text-center">Сотрудник</th>
+                         </tr>
+                     </thead>
+                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                         {modulesForPermissions.map(module => (
+                             <React.Fragment key={module}>
+                                 <tr className="bg-gray-50/30 dark:bg-gray-800/30">
+                                     <td colSpan={4} className="px-6 py-2 font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700/50 border-y border-gray-200 dark:border-gray-700">
+                                         {module}
+                                     </td>
+                                 </tr>
+                                 {actionsForPermissions.map(action => (
+                                     <tr key={`${module}-${action.key}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                         <td className="px-6 py-3 text-gray-700 dark:text-gray-300 font-medium">{action.label}</td>
+                                         <td className="px-6 py-3 text-center">
+                                             <input 
+                                                 type="checkbox" 
+                                                 checked={permissions?.ADMIN?.[module]?.[action.key] || false} 
+                                                 onChange={() => togglePermission('ADMIN', module, action.key)}
+                                                 className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer disabled:opacity-50"
+                                                 disabled={true} // Admins always have full rights usually, or self-lock prevention
+                                             />
+                                         </td>
+                                         <td className="px-6 py-3 text-center">
+                                              <input 
+                                                 type="checkbox" 
+                                                 checked={permissions?.MANAGER?.[module]?.[action.key] || false} 
+                                                 onChange={() => togglePermission('MANAGER', module, action.key)}
+                                                 className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                                             />
+                                         </td>
+                                         <td className="px-6 py-3 text-center">
+                                              <input 
+                                                 type="checkbox" 
+                                                 checked={permissions?.EMPLOYEE?.[module]?.[action.key] || false} 
+                                                 onChange={() => togglePermission('EMPLOYEE', module, action.key)}
+                                                 className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                                             />
+                                         </td>
+                                     </tr>
+                                 ))}
+                             </React.Fragment>
+                         ))}
+                     </tbody>
+                  </table>
+              </div>
+          </div>
       )}
 
       {activeTab === 'TEAM' && (

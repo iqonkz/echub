@@ -1,5 +1,4 @@
 
-
 export enum ModuleType {
   HOME = 'HOME',
   CRM = 'CRM',
@@ -25,12 +24,26 @@ export enum DealStage {
   WON = 'Сделка успешна',
 }
 
+export interface CrmColumn {
+    key: string;
+    label: string;
+    visible: boolean;
+    order: number;
+}
+
+export interface CrmUserSettings {
+    dealsColumns: CrmColumn[];
+    companiesColumns: CrmColumn[];
+    contactsColumns: CrmColumn[];
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
   avatar: string;
   role: 'ADMIN' | 'USER';
+  crmSettings?: CrmUserSettings;
 }
 
 export interface TeamMember {
@@ -43,6 +56,13 @@ export interface TeamMember {
   status: 'ACTIVE' | 'INVITED' | 'DISABLED';
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  access: 'PUBLIC' | 'PRIVATE' | 'CUSTOM';
+  allowedUsers: string[]; // User IDs
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -52,7 +72,7 @@ export interface Task {
   dueDate: string;
   status: TaskStatus;
   priority: 'Высокий' | 'Средний' | 'Низкий';
-  project: string;
+  project: string; // Stores Project Name for display
   parentId?: string;
 }
 
@@ -79,7 +99,6 @@ export interface Company {
   website?: string;
   address?: string;
   createdAt?: string;
-  // Deprecated/Compatibility fields
   inn?: string; 
   contactPerson?: string; 
 }
@@ -95,7 +114,7 @@ export interface Contact {
   organization?: string;
   address?: string;
   lastContactDate?: string;
-  extraPhone?: string; // Deprecated
+  extraPhone?: string; 
 }
 
 export interface CrmActivity {
@@ -144,4 +163,20 @@ export interface SystemLog {
   user: string;
   action: string;
   module: string;
+}
+
+// --- Permissions Types ---
+export type PermissionAction = 'READ' | 'CREATE' | 'UPDATE' | 'DELETE' | 'EXPORT' | 'IMPORT';
+export type AppRole = 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+
+export interface RolePermissions {
+    [module: string]: {
+        [action in PermissionAction]?: boolean;
+    };
+}
+
+export interface AppPermissions {
+    ADMIN: RolePermissions;
+    MANAGER: RolePermissions;
+    EMPLOYEE: RolePermissions;
 }
