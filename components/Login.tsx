@@ -34,13 +34,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
       {/* Premium Background with Overlay */}
       <div 
-        className="absolute inset-0 bg-cover bg-center z-0 scale-105"
-        style={{ backgroundImage: "url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop')" }}
+        className="absolute inset-0 bg-cover bg-center z-0 scale-100"
+        style={{ backgroundImage: "url('https://unsplash.com/photos/H2Z8A4af4Zo/download?ixid=M3wxMjA3fDB8MXxhbGx8fHx8fHx8fHwxNzY0MTI4ODk1fA&force=true&w=1920')" }}
       />
-      <div className="absolute inset-0 bg-gray-900/70 backdrop-blur-[2px] z-0" />
+     <div className="absolute inset-0 bg-black/0 backdrop-blur-[0px] z-1" />
 
       {/* Login Card */}
-      <div className="relative z-10 w-full max-w-[440px] bg-white/95 dark:bg-gray-900/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/50 overflow-hidden flex flex-col animate-fade-in-up">
+      <div className="relative z-10 w-full max-w-[440px] bg-white/85 dark:bg-gray-900/80 backdrop-blur-[5px] rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/50 overflow-hidden flex flex-col animate-fade-in-up">
         
         {/* Header Section */}
         <div className="pt-10 pb-6 px-8 flex flex-col items-center">
@@ -77,7 +77,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </svg>
             </div>
             
-            <p className="text-center text-gray-500 dark:text-gray-400 text-sm font-medium">Корпоративная ERP система</p>
+            <p className="text-center text-black dark:text-white text-sm font-medium">Корпоративная CRM система</p>
         </div>
 
         {/* Form Section */}
@@ -91,16 +91,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1.5 ml-1">Email</label>
+              <label className="block text-xs font-bold uppercase text-black dark:text-white mb-1.5 ml-1">Email</label>
               <div className="relative group">
-                <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-primary-500 transition-colors">
+                <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-black dark:text-white group-focus-within:text-primary-500 transition-colors">
                     <Mail className="w-5 h-5" />
                 </div>
                 <input 
                   type="email" 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all placeholder-gray-400 text-sm font-medium"
+                  className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 text-black dark:text-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all placeholder-gray-500 text-sm font-medium"
                   placeholder="user@engineering-centre.com"
                   required
                 />
@@ -108,16 +108,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1.5 ml-1">Пароль</label>
+              <label className="block text-xs font-bold uppercase text-black dark:text-white mb-1.5 ml-1">Пароль</label>
               <div className="relative group">
-                <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-primary-500 transition-colors">
+                <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-black dark:text-white group-focus-within:text-primary-500 transition-colors">
                     <Lock className="w-5 h-5" />
                 </div>
                 <input 
                   type="password" 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all placeholder-gray-400 text-sm font-medium"
+                  className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 text-black dark:text-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all placeholder-gray-500 text-sm font-medium"
                   placeholder="••••••••"
                   required
                 />
@@ -144,8 +144,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </form>
 
           <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700/50 text-center">
-             <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-               Engineering Centre HUB v1.0 • Protected by Firebase
+             <p className="text-xs text-black dark:text-gray-300 font-medium">
+               Engineering Centre HUB v0.1.6 • Protected by Firebase
              </p>
           </div>
         </div>
