@@ -1,7 +1,10 @@
-
 import React, { useState } from 'react';
 import { User, Bell, Lock, Moon, Sun, LogOut, Activity, Smartphone, Type, Monitor, Send, Save, Users, Plus, Edit, Trash2, X, Laptop, Shield, Key, ArchiveRestore, RefreshCcw } from 'lucide-react';
 import { SystemLog, ModuleType, User as UserType, TeamMember, AppRole, PermissionAction, AppPermissions, DeletedItem } from '../types';
+import Switch from './ui/Switch';
+import Input from './ui/Input';
+import Select from './ui/Select';
+import Button from './ui/Button';
 
 interface SettingsProps {
   currentUser: UserType;
@@ -44,10 +47,6 @@ const Settings: React.FC<SettingsProps> = ({
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [teamForm, setTeamForm] = useState<Partial<TeamMember>>({});
 
-  // CRM Invite State
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteSent, setInviteSent] = useState(false);
-
   const toggleModule = (module: ModuleType) => {
      if (!mobileMenuConfig || !onUpdateMobileConfig) return;
      if (mobileMenuConfig.includes(module)) {
@@ -61,14 +60,6 @@ const Settings: React.FC<SettingsProps> = ({
       e.preventDefault();
       onUpdateProfile(editForm);
       setIsEditingProfile(false);
-  };
-
-  const handleInvite = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (inviteEmail) {
-          setInviteSent(true);
-          setTimeout(() => { setInviteSent(false); setInviteEmail(''); }, 3000);
-      }
   };
 
   // Team Handlers
@@ -198,17 +189,19 @@ const Settings: React.FC<SettingsProps> = ({
           
           {isEditingProfile ? (
               <form onSubmit={handleSaveProfile} className="space-y-5">
-                  <div className="space-y-1.5">
-                      <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Имя</label>
-                      <input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full p-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-sm" />
-                  </div>
-                  <div className="space-y-1.5">
-                      <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Email</label>
-                      <input value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="w-full p-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-sm" />
-                  </div>
+                  <Input 
+                    label="Имя"
+                    value={editForm.name} 
+                    onChange={e => setEditForm({...editForm, name: e.target.value})} 
+                  />
+                  <Input 
+                    label="Email"
+                    value={editForm.email} 
+                    onChange={e => setEditForm({...editForm, email: e.target.value})} 
+                  />
                   <div className="flex gap-3 justify-end pt-2">
-                      <button type="button" onClick={() => setIsEditingProfile(false)} className="px-4 py-2 text-gray-600 dark:text-gray-400 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">Отмена</button>
-                      <button type="submit" className="px-5 py-2 bg-gradient-to-r from-primary-400 to-primary-500 text-gray-900 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 hover:-translate-y-0.5 transition-all"><Save className="w-4 h-4"/> Сохранить</button>
+                      <Button type="button" variant="secondary" onClick={() => setIsEditingProfile(false)}>Отмена</Button>
+                      <Button type="submit" icon={<Save className="w-4 h-4"/>}>Сохранить</Button>
                   </div>
               </form>
           ) : (
@@ -261,17 +254,19 @@ const Settings: React.FC<SettingsProps> = ({
             </div>
 
              <div className="border-t border-gray-100 dark:border-gray-700 mt-6 pt-6">
-                 <button 
+                 <Button 
                    onClick={onLogout}
-                   className="flex items-center gap-2 text-red-600 hover:text-red-700 font-bold px-5 py-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-all w-full md:w-auto justify-center"
+                   variant="danger"
+                   icon={<LogOut className="w-5 h-5" />}
                  >
-                    <LogOut className="w-5 h-5" /> Выйти из всех устройств
-                 </button>
+                    Выйти из всех устройств
+                 </Button>
               </div>
         </div>
       </div>
       )}
 
+      {/* Rights Tab Content Omitted for Brevity - Using existing logic but could apply Select if needed */}
       {activeTab === 'RIGHTS' && currentUser.role === 'ADMIN' && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
                <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm">
@@ -279,9 +274,7 @@ const Settings: React.FC<SettingsProps> = ({
                       <Key className="w-5 h-5 text-primary-500" /> Права доступа
                   </h3>
               </div>
-              
               <div className="overflow-x-auto">
-                  {/* Permissions Matrix with Premium Checkboxes */}
                   <table className="w-full text-left text-sm">
                      <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs font-bold border-b border-gray-200 dark:border-gray-700">
                          <tr>
@@ -303,31 +296,19 @@ const Settings: React.FC<SettingsProps> = ({
                                      <tr key={`${module}-${action.key}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                                          <td className="px-6 py-3 text-gray-700 dark:text-gray-300 font-medium">{action.label}</td>
                                          <td className="px-6 py-3 text-center">
-                                             <div className={`w-10 h-6 bg-primary-500 rounded-full p-1 transition-all mx-auto opacity-50 cursor-not-allowed`}>
-                                                 <div className="bg-white w-4 h-4 rounded-full shadow-md transform translate-x-4"></div>
-                                             </div>
+                                             <Switch checked={true} onChange={() => {}} disabled />
                                          </td>
                                          <td className="px-6 py-3 text-center">
-                                             <label className="relative inline-flex items-center cursor-pointer justify-center">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={permissions?.MANAGER?.[module]?.[action.key] || false} 
-                                                    onChange={() => togglePermission('MANAGER', module, action.key)}
-                                                    className="sr-only peer"
-                                                />
-                                                <div className="w-10 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-500"></div>
-                                              </label>
+                                             <Switch 
+                                                checked={permissions?.MANAGER?.[module]?.[action.key] || false} 
+                                                onChange={() => togglePermission('MANAGER', module, action.key)}
+                                             />
                                          </td>
                                          <td className="px-6 py-3 text-center">
-                                              <label className="relative inline-flex items-center cursor-pointer justify-center">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={permissions?.EMPLOYEE?.[module]?.[action.key] || false} 
-                                                    onChange={() => togglePermission('EMPLOYEE', module, action.key)}
-                                                    className="sr-only peer"
-                                                />
-                                                <div className="w-10 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-500"></div>
-                                              </label>
+                                             <Switch 
+                                                checked={permissions?.EMPLOYEE?.[module]?.[action.key] || false} 
+                                                onChange={() => togglePermission('EMPLOYEE', module, action.key)}
+                                             />
                                          </td>
                                      </tr>
                                  ))}
@@ -339,7 +320,7 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
       )}
 
-      {/* Recycle Bin Tab */}
+      {/* Trash Tab */}
       {activeTab === 'TRASH' && (
            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
                 <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm">
@@ -406,15 +387,16 @@ const Settings: React.FC<SettingsProps> = ({
            </div>
       )}
 
+      {/* Team Tab */}
       {activeTab === 'TEAM' && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
               <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm">
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <Users className="w-5 h-5 text-primary-500" /> Команда
                   </h3>
-                  <button onClick={() => openTeamModal()} className="flex items-center gap-2 bg-gradient-to-r from-primary-400 to-primary-500 text-gray-900 px-4 py-2 rounded-xl font-bold hover:shadow-lg hover:shadow-primary-500/30 transition-all hover:-translate-y-0.5 text-sm">
-                      <Plus className="w-4 h-4" /> Добавить
-                  </button>
+                  <Button onClick={() => openTeamModal()} icon={<Plus className="w-4 h-4" />}>
+                      Добавить
+                  </Button>
               </div>
               <div className="overflow-x-auto">
                   <table className="w-full text-left">
@@ -462,6 +444,7 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
       )}
 
+      {/* Appearance Tab */}
       {activeTab === 'APPEARANCE' && (
         <div className="space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
@@ -522,6 +505,7 @@ const Settings: React.FC<SettingsProps> = ({
         </div>
       )}
 
+      {/* Mobile Menu Tab */}
       {activeTab === 'MOBILE' && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
@@ -536,21 +520,17 @@ const Settings: React.FC<SettingsProps> = ({
                  {availableModules.map(m => (
                      <div key={m.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50">
                          <span className="text-gray-900 dark:text-white font-bold">{m.label}</span>
-                         <label className="relative inline-flex items-center cursor-pointer">
-                            <input 
-                              type="checkbox" 
-                              checked={mobileMenuConfig?.includes(m.id)}
-                              onChange={() => toggleModule(m.id)}
-                              className="sr-only peer" 
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-500"></div>
-                         </label>
+                         <Switch 
+                            checked={mobileMenuConfig?.includes(m.id) || false}
+                            onChange={() => toggleModule(m.id)}
+                         />
                      </div>
                  ))}
               </div>
           </div>
       )}
 
+      {/* Logs Tab */}
       {activeTab === 'LOGS' && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm">
@@ -603,49 +583,38 @@ const Settings: React.FC<SettingsProps> = ({
                       </button>
                   </div>
                   <form onSubmit={handleSaveTeamMember} className="p-6 space-y-5">
-                      <div className="space-y-1.5">
-                          <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Имя</label>
-                          <input 
-                              value={teamForm.name || ''} 
-                              onChange={e => setTeamForm({...teamForm, name: e.target.value})}
-                              className="w-full p-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-sm" 
-                              required
-                          />
-                      </div>
-                      <div className="space-y-1.5">
-                          <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Email</label>
-                          <input 
-                              type="email"
-                              value={teamForm.email || ''} 
-                              onChange={e => setTeamForm({...teamForm, email: e.target.value})}
-                              className="w-full p-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-sm" 
-                              required
-                          />
-                      </div>
+                      <Input 
+                        label="Имя"
+                        value={teamForm.name || ''} 
+                        onChange={e => setTeamForm({...teamForm, name: e.target.value})}
+                        required
+                      />
+                      <Input 
+                        label="Email"
+                        type="email"
+                        value={teamForm.email || ''} 
+                        onChange={e => setTeamForm({...teamForm, email: e.target.value})}
+                        required
+                      />
                       <div className="grid grid-cols-2 gap-5">
-                          <div className="space-y-1.5">
-                              <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Роль</label>
-                              <select 
-                                  value={teamForm.role || 'EMPLOYEE'} 
-                                  onChange={e => setTeamForm({...teamForm, role: e.target.value as any})}
-                                  className="w-full p-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-sm"
-                              >
-                                  <option value="EMPLOYEE">Сотрудник</option>
-                                  <option value="MANAGER">Менеджер</option>
-                                  <option value="ADMIN">Администратор</option>
-                              </select>
-                          </div>
-                          <div className="space-y-1.5">
-                              <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Отдел</label>
-                              <input 
-                                  value={teamForm.department || ''} 
-                                  onChange={e => setTeamForm({...teamForm, department: e.target.value})}
-                                  className="w-full p-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-sm" 
-                              />
-                          </div>
+                          <Select
+                            label="Роль"
+                            value={teamForm.role || 'EMPLOYEE'} 
+                            onChange={e => setTeamForm({...teamForm, role: e.target.value as any})}
+                            options={[
+                                { value: 'EMPLOYEE', label: 'Сотрудник' },
+                                { value: 'MANAGER', label: 'Менеджер' },
+                                { value: 'ADMIN', label: 'Администратор' }
+                            ]}
+                          />
+                          <Input 
+                             label="Отдел"
+                             value={teamForm.department || ''} 
+                             onChange={e => setTeamForm({...teamForm, department: e.target.value})}
+                          />
                       </div>
                       <div className="flex justify-end pt-2">
-                          <button type="submit" className="px-5 py-2.5 bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 rounded-xl font-bold shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all">Сохранить</button>
+                          <Button type="submit">Сохранить</Button>
                       </div>
                   </form>
               </div>

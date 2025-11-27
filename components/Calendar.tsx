@@ -2,6 +2,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Task, TaskStatus, CrmActivity } from '../types';
 import { ChevronLeft, ChevronRight, Plus, CheckSquare, Zap, X, Settings, Calendar as CalendarIcon } from 'lucide-react';
+import Modal from './ui/Modal';
+import Button from './ui/Button';
+import Switch from './ui/Switch';
 
 interface CalendarProps {
   tasks: Task[];
@@ -289,47 +292,42 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
       </div>
 
       {/* Settings Modal (Centered Overlay) */}
-      {isSettingsOpen && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-              <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-sm border border-white/20 dark:border-gray-700 overflow-hidden">
-                  <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                          <CalendarIcon className="w-5 h-5" /> Рабочие дни
-                      </h3>
-                      <button onClick={() => setIsSettingsOpen(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-400"><X className="w-5 h-5"/></button>
-                  </div>
-                  <div className="p-6 space-y-2">
+      <Modal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        title={
+            <div className="flex items-center gap-2">
+                <CalendarIcon className="w-5 h-5" /> Рабочие дни
+            </div>
+        }
+        size="sm"
+      >
+                  <div className="space-y-2">
                       {orderedDayIndices.map(dayIndex => (
-                         <label key={dayIndex} className="flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 p-3 rounded-xl transition-colors border border-transparent hover:border-gray-100 dark:hover:border-gray-700">
+                         <div key={dayIndex} className="flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 p-3 rounded-xl transition-colors border border-transparent hover:border-gray-100 dark:hover:border-gray-700" onClick={() => toggleWorkingDay(dayIndex)}>
                              <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{dayNamesShort[dayIndex]}</span>
-                             <div className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all ${workingDays.includes(dayIndex) ? 'bg-primary-500 border-primary-500 scale-105' : 'border-gray-300 dark:border-gray-600'}`}>
-                                <input 
-                                  type="checkbox" 
-                                  checked={workingDays.includes(dayIndex)}
-                                  onChange={() => toggleWorkingDay(dayIndex)}
-                                  className="hidden"
-                                />
-                                {workingDays.includes(dayIndex) && <CheckSquare className="w-4 h-4 text-white" />}
-                             </div>
-                         </label>
+                             <Switch 
+                                checked={workingDays.includes(dayIndex)}
+                                onChange={() => toggleWorkingDay(dayIndex)}
+                             />
+                         </div>
                       ))}
-                      <button onClick={() => setIsSettingsOpen(false)} className="w-full mt-4 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white font-bold py-3 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Закрыть</button>
+                      <Button onClick={() => setIsSettingsOpen(false)} className="w-full mt-4" variant="secondary">Закрыть</Button>
                   </div>
-              </div>
-          </div>
-      )}
+      </Modal>
 
       {/* Activity Modal */}
-      {isActivityModalOpen && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-             <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-sm border border-white/20 dark:border-gray-700 overflow-hidden">
-                <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Новое действие</h3>
-                    <button onClick={() => setIsActivityModalOpen(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-400"><X className="w-5 h-5"/></button>
-                </div>
-                <form onSubmit={handleSaveActivity} className="p-6 space-y-5">
+      <Modal
+        isOpen={isActivityModalOpen}
+        onClose={() => setIsActivityModalOpen(false)}
+        title="Новое действие"
+        footer={
+           <Button onClick={handleSaveActivity}>Сохранить</Button>
+        }
+      >
+                <form onSubmit={handleSaveActivity} className="space-y-5">
                    <div className="space-y-1.5">
-                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Тема</label>
+                       <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300">Тема</label>
                        <input 
                           value={newActivityData.subject || ''} 
                           onChange={e => setNewActivityData({...newActivityData, subject: e.target.value})}
@@ -339,7 +337,7 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
                        />
                    </div>
                    <div className="space-y-1.5">
-                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Тип</label>
+                       <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300">Тип</label>
                        <select 
                           value={newActivityData.type || 'Звонок'} 
                           onChange={e => setNewActivityData({...newActivityData, type: e.target.value as any})}
@@ -351,7 +349,7 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
                        </select>
                    </div>
                    <div className="space-y-1.5">
-                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Дата</label>
+                       <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300">Дата</label>
                        <input 
                           type="date"
                           value={newActivityData.date || ''} 
@@ -360,13 +358,8 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
                           required
                        />
                    </div>
-                   <div className="flex justify-end pt-2">
-                       <button type="submit" className="px-5 py-2.5 bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 rounded-xl font-bold shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all">Сохранить</button>
-                   </div>
                 </form>
-             </div>
-          </div>
-      )}
+      </Modal>
     </div>
   );
 };

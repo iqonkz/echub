@@ -1,8 +1,9 @@
-
 import React, { useState } from 'react';
 import { Mail, Lock, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
+import Input from './ui/Input';
+import Button from './ui/Button';
 
 interface LoginProps {
   onLogin: (user: any) => void;
@@ -90,62 +91,42 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-xs font-bold uppercase text-black dark:text-white mb-1.5 ml-1">Email</label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-black dark:text-white group-focus-within:text-primary-500 transition-colors">
-                    <Mail className="w-5 h-5" />
-                </div>
-                <input 
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 text-black dark:text-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all placeholder-gray-500 text-sm font-medium"
-                  placeholder="user@engineering-centre.com"
-                  required
-                />
-              </div>
-            </div>
+            <Input 
+              label="Email"
+              type="email" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="user@engineering-centre.com"
+              required
+              variant="glass"
+              icon={<Mail className="w-5 h-5" />}
+            />
 
-            <div>
-              <label className="block text-xs font-bold uppercase text-black dark:text-white mb-1.5 ml-1">Пароль</label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-black dark:text-white group-focus-within:text-primary-500 transition-colors">
-                    <Lock className="w-5 h-5" />
-                </div>
-                <input 
-                  type="password" 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 text-black dark:text-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all placeholder-gray-500 text-sm font-medium"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-            </div>
+            <Input 
+              label="Пароль"
+              type="password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              variant="glass"
+              icon={<Lock className="w-5 h-5" />}
+            />
 
-            <button 
+            <Button 
               type="submit" 
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
+              isLoading={isLoading}
+              className="w-full py-3.5 mt-4"
+              icon={!isLoading && <ArrowRight className="w-5 h-5" />}
             >
-              {isLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Вход...
-                  </>
-              ) : (
-                  <>
-                    Войти в систему
-                    <ArrowRight className="w-5 h-5" />
-                  </>
-              )}
-            </button>
+              Войти в систему
+            </Button>
           </form>
 
           <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700/50 text-center">
              <p className="text-xs text-black dark:text-gray-300 font-medium">
-               Engineering Centre HUB v0.1.6 • Protected by Firebase
+               Engineering Centre HUB v0.1.7 • Protected by Firebase
              </p>
           </div>
         </div>

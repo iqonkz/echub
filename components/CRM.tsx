@@ -1,7 +1,12 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Deal, DealStage, Company, Contact, CrmActivity, User, CrmUserSettings, CrmColumn } from '../types';
-import { Plus, LayoutGrid, List, Trash2, Building, Filter, X, Pencil, ArrowUpDown, Phone, Mail, User as UserIcon, Download, Upload, Settings } from 'lucide-react';
+import { Plus, LayoutGrid, List, Trash2, Building, Filter, Pencil, ArrowUpDown, Phone, Mail, User as UserIcon, Download, Upload, Settings, Eye } from 'lucide-react';
+import Modal from './ui/Modal';
+import Button from './ui/Button';
+import Switch from './ui/Switch';
+import Input from './ui/Input';
+import Select from './ui/Select';
+import Textarea from './ui/Textarea';
 
 interface CRMProps {
   deals: Deal[];
@@ -555,21 +560,19 @@ const CRM: React.FC<CRMProps> = ({
 
            {/* Filter Dropdown */}
            {(activeTab === 'COMPANIES' || activeTab === 'PEOPLE') && (
-              <div className="relative">
-                  <div className="flex items-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-2 shadow-sm hover:border-primary-500 transition-colors">
-                      <Filter className="w-4 h-4 text-gray-500 mr-2"/>
-                      <select 
-                          value={filterValue} 
-                          onChange={(e) => setFilterValue(e.target.value)}
-                          className="bg-transparent border-none outline-none text-sm text-gray-700 dark:text-gray-200 w-32 font-medium cursor-pointer"
-                      >
-                          <option value="ALL">Все</option>
-                          {activeTab === 'COMPANIES' 
-                              ? uniqueIndustries.map(ind => <option key={ind} value={ind}>{ind}</option>)
-                              : uniqueOrganizations.map(org => <option key={org} value={org}>{org}</option>)
-                          }
-                      </select>
-                  </div>
+              <div className="relative min-w-[150px]">
+                  <Select 
+                    icon={<Filter className="w-4 h-4" />}
+                    value={filterValue} 
+                    onChange={(e) => setFilterValue(e.target.value)}
+                    options={[
+                        { value: "ALL", label: "Все" },
+                        ...(activeTab === 'COMPANIES' 
+                            ? uniqueIndustries.map(ind => ({ value: ind, label: ind }))
+                            : uniqueOrganizations.map(org => ({ value: org, label: org }))
+                        )
+                    ]}
+                  />
               </div>
            )}
 
@@ -584,13 +587,12 @@ const CRM: React.FC<CRMProps> = ({
              </div>
            )}
            
-           <button 
+           <Button 
               onClick={() => openModal()}
-              className="flex items-center gap-2 bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 text-sm font-bold whitespace-nowrap hover:-translate-y-0.5 active:translate-y-0"
+              icon={<Plus className="w-4 h-4" />}
             >
-              <Plus className="w-4 h-4" />
               {activeTab === 'ACTIVITIES' ? 'Новое действие' : 'Добавить'}
-            </button>
+            </Button>
         </div>
       </div>
 
@@ -604,144 +606,147 @@ const CRM: React.FC<CRMProps> = ({
       </div>
 
       {/* Settings Modal */}
-      {isSettingsModalOpen && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-              <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-md border border-white/20 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]">
-                  <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                          <Settings className="w-5 h-5"/> Настройки CRM
-                      </h3>
-                      <button onClick={() => setIsSettingsModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"><X className="w-5 h-5"/></button>
-                  </div>
-                  <div className="p-6 space-y-6 overflow-y-auto">
-                      {/* Import/Export Section */}
-                      {currentUser?.role === 'ADMIN' && (
-                          <div className="space-y-3">
-                              <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Обмен данными</h4>
-                              <div className="grid grid-cols-2 gap-3">
-                                  <button onClick={handleExport} className="flex flex-col items-center justify-center p-4 rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all gap-2 group">
-                                      <Download className="w-6 h-6 text-primary-500 group-hover:scale-110 transition-transform" />
-                                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Экспорт</span>
-                                  </button>
-                                  <button onClick={triggerImport} className="flex flex-col items-center justify-center p-4 rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all gap-2 group">
-                                      <Upload className="w-6 h-6 text-primary-500 group-hover:scale-110 transition-transform" />
-                                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Импорт</span>
-                                  </button>
-                                  <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImport} />
-                              </div>
-                          </div>
-                      )}
-
-                      {/* Columns Configuration */}
-                      {(activeTab === 'DEALS' || activeTab === 'COMPANIES' || activeTab === 'PEOPLE') && (
-                          <div className="space-y-3">
-                              <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Настройка столбцов</h4>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">Выберите и упорядочьте столбцы для списка</p>
-                              
-                              <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-100 dark:border-gray-700 rounded-xl p-2">
-                                  {(activeTab === 'DEALS' ? currentSettings.dealsColumns : activeTab === 'COMPANIES' ? currentSettings.companiesColumns : currentSettings.contactsColumns).map((col, idx) => (
-                                      <div key={col.key} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-                                          <div className="flex items-center gap-3">
-                                              <input 
-                                                  type="checkbox" 
-                                                  checked={col.visible} 
-                                                  onChange={() => toggleColumn(activeTab as any, col.key)}
-                                                  className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                                              />
-                                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{col.label}</span>
-                                          </div>
-                                          <div className="flex flex-col gap-0.5">
-                                              <button onClick={() => moveColumn(activeTab as any, idx, 'UP')} disabled={idx === 0} className="text-gray-400 hover:text-gray-700 disabled:opacity-30"><ArrowUpDown className="w-3 h-3 rotate-180" /></button>
-                                              <button onClick={() => moveColumn(activeTab as any, idx, 'DOWN')} disabled={idx === (activeTab === 'DEALS' ? currentSettings.dealsColumns.length : activeTab === 'COMPANIES' ? currentSettings.companiesColumns.length : currentSettings.contactsColumns.length) - 1} className="text-gray-400 hover:text-gray-700 disabled:opacity-30"><ArrowUpDown className="w-3 h-3" /></button>
-                                          </div>
-                                      </div>
-                                  ))}
-                              </div>
-                          </div>
-                      )}
-                  </div>
-              </div>
+      <Modal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        title={
+          <div className="flex items-center gap-2">
+            <Settings className="w-5 h-5"/> Настройки CRM
           </div>
-      )}
+        }
+      >
+        <div className="space-y-6">
+            {/* Import/Export Section */}
+            {currentUser?.role === 'ADMIN' && (
+                <div className="space-y-3">
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Обмен данными</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button onClick={handleExport} className="flex flex-col items-center justify-center p-4 rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all gap-2 group">
+                            <Download className="w-6 h-6 text-primary-500 group-hover:scale-110 transition-transform" />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Экспорт</span>
+                        </button>
+                        <button onClick={triggerImport} className="flex flex-col items-center justify-center p-4 rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all gap-2 group">
+                            <Upload className="w-6 h-6 text-primary-500 group-hover:scale-110 transition-transform" />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Импорт</span>
+                        </button>
+                        <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImport} />
+                    </div>
+                </div>
+            )}
+
+            {/* Columns Configuration */}
+            {(activeTab === 'DEALS' || activeTab === 'COMPANIES' || activeTab === 'PEOPLE') && (
+                <div className="space-y-3">
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Настройка столбцов</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Выберите и упорядочьте столбцы для списка</p>
+                    
+                    <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-100 dark:border-gray-700 rounded-xl p-2">
+                        {(activeTab === 'DEALS' ? currentSettings.dealsColumns : activeTab === 'COMPANIES' ? currentSettings.companiesColumns : currentSettings.contactsColumns).map((col, idx) => (
+                            <div key={col.key} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                    <Switch 
+                                        checked={col.visible} 
+                                        onChange={() => toggleColumn(activeTab as any, col.key)}
+                                    />
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{col.label}</span>
+                                </div>
+                                <div className="flex flex-col gap-0.5">
+                                    <button onClick={() => moveColumn(activeTab as any, idx, 'UP')} disabled={idx === 0} className="text-gray-400 hover:text-gray-700 disabled:opacity-30"><ArrowUpDown className="w-3 h-3 rotate-180" /></button>
+                                    <button onClick={() => moveColumn(activeTab as any, idx, 'DOWN')} disabled={idx === (activeTab === 'DEALS' ? currentSettings.dealsColumns.length : activeTab === 'COMPANIES' ? currentSettings.companiesColumns.length : currentSettings.contactsColumns.length) - 1} className="text-gray-400 hover:text-gray-700 disabled:opacity-30"><ArrowUpDown className="w-3 h-3" /></button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+      </Modal>
 
       {/* Edit/Add Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-lg border border-white/20 dark:border-gray-700 flex flex-col max-h-[90vh] overflow-hidden">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
-               <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                 {editingItem ? 'Редактировать' : 'Добавить'} {activeTab === 'DEALS' ? 'сделку' : activeTab === 'COMPANIES' ? 'компанию' : activeTab === 'PEOPLE' ? 'человека' : 'действие'}
-               </h3>
-               <button onClick={() => setIsModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"><X className="w-5 h-5"/></button>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto">
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={`${editingItem ? 'Редактировать' : 'Добавить'} ${activeTab === 'DEALS' ? 'сделку' : activeTab === 'COMPANIES' ? 'компанию' : activeTab === 'PEOPLE' ? 'человека' : 'действие'}`}
+        footer={
+          <>
+             <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Отмена</Button>
+             <Button onClick={handleSubmit}>{editingItem ? 'Сохранить' : 'Добавить'}</Button>
+          </>
+        }
+      >
+        <form onSubmit={handleSubmit} className="space-y-5">
               {activeTab === 'DEALS' && (
                 <>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Название сделки*</label>
-                    <input value={formData.title || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, title: e.target.value})} required />
-                  </div>
+                  <Input 
+                    label="Название сделки*"
+                    value={formData.title || ''} 
+                    onChange={e => setFormData({...formData, title: e.target.value})} 
+                    required 
+                  />
                   
                   {/* Select Company or Contact */}
                   <div className="grid grid-cols-2 gap-4">
-                     <div className="space-y-1.5">
-                         <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400 flex items-center gap-1"><Building className="w-3 h-3"/> Компания</label>
-                         <select 
-                            value={formData.linkedCompanyId || ''} 
-                            onChange={e => setFormData({...formData, linkedCompanyId: e.target.value, linkedContactId: '', clientName: ''})}
-                            className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all"
-                         >
-                             <option value="">Выберите...</option>
-                             {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                         </select>
-                     </div>
-                     <div className="space-y-1.5">
-                         <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400 flex items-center gap-1"><UserIcon className="w-3 h-3"/> Человек</label>
-                         <select 
-                            value={formData.linkedContactId || ''} 
-                            onChange={e => setFormData({...formData, linkedContactId: e.target.value, linkedCompanyId: '', clientName: ''})}
-                            className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all"
-                         >
-                             <option value="">Выберите...</option>
-                             {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                         </select>
-                     </div>
+                     <Select 
+                        label="Компания"
+                        icon={<Building className="w-3 h-3"/>}
+                        value={formData.linkedCompanyId || ''} 
+                        onChange={e => setFormData({...formData, linkedCompanyId: e.target.value, linkedContactId: '', clientName: ''})}
+                     >
+                        <option value="">Выберите...</option>
+                        {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                     </Select>
+
+                     <Select 
+                        label="Человек"
+                        icon={<UserIcon className="w-3 h-3"/>}
+                        value={formData.linkedContactId || ''} 
+                        onChange={e => setFormData({...formData, linkedContactId: e.target.value, linkedCompanyId: '', clientName: ''})}
+                     >
+                        <option value="">Выберите...</option>
+                        {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                     </Select>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Сумма</label>
-                    <div className="relative">
-                        <span className="absolute left-3 top-3 text-gray-500">₸</span>
-                        <input type="number" value={formData.value || ''} className="w-full pl-8 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, value: e.target.value})} required />
-                    </div>
-                  </div>
+                  <Input 
+                    label="Сумма"
+                    type="number"
+                    value={formData.value || ''} 
+                    onChange={e => setFormData({...formData, value: e.target.value})} 
+                    required 
+                    icon={<span className="text-gray-500 font-bold">₸</span>}
+                  />
                 </>
               )}
               {activeTab === 'ACTIVITIES' && (
                  <>
-                   <div className="space-y-1.5">
-                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Тема действия*</label>
-                     <input value={formData.subject || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, subject: e.target.value})} required />
-                   </div>
-                   <div className="space-y-1.5">
-                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Тип</label>
-                     <select value={formData.type || 'Звонок'} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, type: e.target.value})}>
-                        <option value="Звонок">Звонок</option>
-                        <option value="Встреча">Встреча</option>
-                        <option value="Email">Email</option>
-                     </select>
-                   </div>
-                   <div className="space-y-1.5">
-                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Дата</label>
-                     <input type="date" value={formData.date || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, date: e.target.value})} />
-                   </div>
+                   <Input 
+                     label="Тема действия*"
+                     value={formData.subject || ''} 
+                     onChange={e => setFormData({...formData, subject: e.target.value})} 
+                     required 
+                   />
+                   <Select 
+                      label="Тип"
+                      value={formData.type || 'Звонок'} 
+                      onChange={e => setFormData({...formData, type: e.target.value})}
+                      options={[
+                          { value: "Звонок", label: "Звонок" },
+                          { value: "Встреча", label: "Встреча" },
+                          { value: "Email", label: "Email" }
+                      ]}
+                   />
+                   <Input 
+                     label="Дата"
+                     type="date"
+                     value={formData.date || ''} 
+                     onChange={e => setFormData({...formData, date: e.target.value})} 
+                   />
                    
                    {editingItem && (
                        <div className="pt-4 mt-2 border-t border-gray-100 dark:border-gray-700 flex justify-end">
                            <button 
                              type="button" 
-                             onClick={() => onDeleteCompany(editingItem.id)} // Assuming onDeleteCompany is a generic delete passed as prop for now, logic should ideally use onDeleteActivity if available, but for now reuse or fix in App.tsx to pass correct delete
+                             onClick={() => onDeleteCompany(editingItem.id)} // Generic delete
                              className="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-1"
                            >
                                <Trash2 className="w-4 h-4"/> Удалить действие
@@ -752,136 +757,149 @@ const CRM: React.FC<CRMProps> = ({
               )}
               {activeTab === 'COMPANIES' && (
                  <>
-                  <div className="space-y-1.5">
-                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Название*</label>
-                     <input value={formData.name || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, name: e.target.value})} required />
-                  </div>
-                  <div className="space-y-1.5">
-                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Отрасль*</label>
-                     <input 
-                        list="industry-suggestions"
-                        value={formData.industry || ''} 
-                        className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" 
-                        onChange={e => setFormData({...formData, industry: e.target.value})} 
-                        placeholder="Выберите или введите..."
-                        required 
-                     />
-                     <datalist id="industry-suggestions">
+                  <Input 
+                    label="Название*"
+                    value={formData.name || ''} 
+                    onChange={e => setFormData({...formData, name: e.target.value})} 
+                    required 
+                  />
+                  <Input 
+                     label="Отрасль*"
+                     list="industry-suggestions"
+                     value={formData.industry || ''} 
+                     onChange={e => setFormData({...formData, industry: e.target.value})} 
+                     placeholder="Выберите или введите..."
+                     required 
+                  />
+                  <datalist id="industry-suggestions">
                          {uniqueIndustries.map(ind => <option key={ind} value={ind} />)}
-                     </datalist>
+                  </datalist>
+
+                  <div className="grid grid-cols-2 gap-4">
+                      <Input 
+                        label="Телефон*"
+                        value={formData.phone || ''} 
+                        onChange={e => setFormData({...formData, phone: e.target.value})} 
+                        required 
+                      />
+                      <Input 
+                        label="2-й Телефон"
+                        value={formData.secondPhone || ''} 
+                        onChange={e => setFormData({...formData, secondPhone: e.target.value})} 
+                      />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Телефон*</label>
-                        <input value={formData.phone || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, phone: e.target.value})} required />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">2-й Телефон</label>
-                        <input value={formData.secondPhone || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, secondPhone: e.target.value})} />
-                      </div>
+                      <Input 
+                        label="Почта*"
+                        type="email"
+                        value={formData.email || ''} 
+                        onChange={e => setFormData({...formData, email: e.target.value})} 
+                        required 
+                      />
+                      <Input 
+                        label="2-я Почта"
+                        type="email"
+                        value={formData.secondEmail || ''} 
+                        onChange={e => setFormData({...formData, secondEmail: e.target.value})} 
+                      />
                   </div>
+                  <Input 
+                    label="Руководитель"
+                    value={formData.director || ''} 
+                    onChange={e => setFormData({...formData, director: e.target.value})} 
+                  />
                   <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Почта*</label>
-                        <input type="email" value={formData.email || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, email: e.target.value})} required />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">2-я Почта</label>
-                        <input type="email" value={formData.secondEmail || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, secondEmail: e.target.value})} />
-                      </div>
+                      <Input 
+                        label="БИН"
+                        value={formData.bin || ''} 
+                        onChange={e => setFormData({...formData, bin: e.target.value})} 
+                      />
+                      <Input 
+                        label="Сайт"
+                        value={formData.website || ''} 
+                        onChange={e => setFormData({...formData, website: e.target.value})} 
+                      />
                   </div>
-                  <div className="space-y-1.5">
-                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Руководитель</label>
-                     <input value={formData.director || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, director: e.target.value})} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">БИН</label>
-                        <input value={formData.bin || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, bin: e.target.value})} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Сайт</label>
-                        <input value={formData.website || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, website: e.target.value})} />
-                      </div>
-                  </div>
-                  <div className="space-y-1.5">
-                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Адрес</label>
-                     <input value={formData.address || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, address: e.target.value})} />
-                  </div>
+                  <Input 
+                    label="Адрес"
+                    value={formData.address || ''} 
+                    onChange={e => setFormData({...formData, address: e.target.value})} 
+                  />
                  </>
               )}
               {activeTab === 'PEOPLE' && (
                  <>
-                   <div className="space-y-1.5">
-                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">ФИО*</label>
-                     <input value={formData.name || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, name: e.target.value})} required />
-                  </div>
-                  <div className="space-y-1.5">
-                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Должность</label>
-                     <input value={formData.position || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, position: e.target.value})} />
-                  </div>
-                  <div className="space-y-1.5">
-                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Связанная компания</label>
-                     <input 
-                       list="company-suggestions"
-                       value={formData.organization || ''} 
-                       className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" 
-                       onChange={e => setFormData({...formData, organization: e.target.value})} 
-                       placeholder="Выберите или введите..."
-                     />
-                     <datalist id="company-suggestions">
+                  <Input 
+                    label="ФИО*"
+                    value={formData.name || ''} 
+                    onChange={e => setFormData({...formData, name: e.target.value})} 
+                    required 
+                  />
+                  <Input 
+                    label="Должность"
+                    value={formData.position || ''} 
+                    onChange={e => setFormData({...formData, position: e.target.value})} 
+                  />
+                  <Input 
+                     label="Связанная компания"
+                     list="company-suggestions"
+                     value={formData.organization || ''} 
+                     onChange={e => setFormData({...formData, organization: e.target.value})} 
+                     placeholder="Выберите или введите..."
+                  />
+                  <datalist id="company-suggestions">
                          {uniqueOrganizations.map(org => <option key={org} value={org} />)}
-                     </datalist>
-                  </div>
+                  </datalist>
+
                   <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                         <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Телефон*</label>
-                         <input value={formData.phone || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, phone: e.target.value})} required />
-                      </div>
-                      <div className="space-y-1.5">
-                         <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">2-й Телефон</label>
-                         <input value={formData.secondPhone || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, secondPhone: e.target.value})} />
-                      </div>
+                      <Input 
+                        label="Телефон*"
+                        value={formData.phone || ''} 
+                        onChange={e => setFormData({...formData, phone: e.target.value})} 
+                        required 
+                      />
+                      <Input 
+                        label="2-й Телефон"
+                        value={formData.secondPhone || ''} 
+                        onChange={e => setFormData({...formData, secondPhone: e.target.value})} 
+                      />
                   </div>
-                  <div className="space-y-1.5">
-                     <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Почта</label>
-                     <input type="email" value={formData.email || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, email: e.target.value})} />
-                  </div>
+                  <Input 
+                    label="Почта"
+                    type="email"
+                    value={formData.email || ''} 
+                    onChange={e => setFormData({...formData, email: e.target.value})} 
+                  />
                  </>
               )}
-
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors font-medium">Отмена</button>
-                <button type="submit" className="px-5 py-2.5 bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 rounded-xl shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all font-bold">
-                  {editingItem ? 'Сохранить' : 'Добавить'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+        </form>
+      </Modal>
 
       {/* Detail View Modal */}
-      {isDetailModalOpen && selectedItem && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-           <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-lg border border-white/20 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]">
-               <div className="flex justify-between items-start p-6 bg-gray-50/80 dark:bg-gray-900/80 border-b border-gray-100 dark:border-gray-700 backdrop-blur-sm">
-                   <div>
-                      <span className="text-xs font-bold uppercase text-primary-500 tracking-wider mb-1 block">Детали</span>
-                      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedItem.title || selectedItem.name || selectedItem.subject}</h2>
-                   </div>
-                   <button onClick={() => setIsDetailModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"><X /></button>
-               </div>
-               
-               <div className="p-6 space-y-6 overflow-y-auto">
+      <Modal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        title={selectedItem?.title || selectedItem?.name || selectedItem?.subject || 'Детали'}
+        footer={
+           <div className="flex gap-3 w-full">
+             <Button variant="secondary" onClick={() => { setIsDetailModalOpen(false); openModal(selectedItem); }} className="flex-1">Редактировать</Button>
+             {selectedItem?.phone && (
+                 <a href={`tel:${selectedItem.phone}`} className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-lg shadow-green-500/20 transition-all text-center flex items-center justify-center gap-2">
+                     <Phone className="w-4 h-4"/> Позвонить
+                 </a>
+             )}
+           </div>
+        }
+      >
+               <div className="space-y-6">
                   {/* Basic Info */}
                    <div className="grid grid-cols-2 gap-6">
-                      {Object.entries(selectedItem).map(([key, value]) => {
+                      {selectedItem && Object.entries(selectedItem).map(([key, value]) => {
                           if (['id', 'companyId', 'contactId', 'relatedEntityId', 'inn'].includes(key) || value === undefined || value === null || value === '') return null;
                           if (key === 'phone' || key === 'secondPhone') {
                              return (
                                  <div key={key}>
-                                     <span className="text-xs font-bold text-gray-500 uppercase block mb-1">{key === 'phone' ? 'Телефон' : '2-й Телефон'}</span>
+                                     <span className="text-xs font-bold text-gray-900 dark:text-gray-300 uppercase block mb-1">{key === 'phone' ? 'Телефон' : '2-й Телефон'}</span>
                                      <a href={`tel:${value}`} className="font-medium text-primary-600 hover:underline flex items-center gap-1"><Phone className="w-3 h-3"/> {String(value)}</a>
                                  </div>
                              );
@@ -889,7 +907,7 @@ const CRM: React.FC<CRMProps> = ({
                           if (key === 'email' || key === 'secondEmail') {
                               return (
                                   <div key={key}>
-                                      <span className="text-xs font-bold text-gray-500 uppercase block mb-1">{key === 'email' ? 'Почта' : '2-я Почта'}</span>
+                                      <span className="text-xs font-bold text-gray-900 dark:text-gray-300 uppercase block mb-1">{key === 'email' ? 'Почта' : '2-я Почта'}</span>
                                       <a href={`mailto:${value}`} className="font-medium text-primary-600 hover:underline flex items-center gap-1"><Mail className="w-3 h-3"/> {String(value)}</a>
                                   </div>
                               );
@@ -899,7 +917,7 @@ const CRM: React.FC<CRMProps> = ({
                           
                           return (
                               <div key={key} className="col-span-1">
-                                  <span className="text-xs font-bold text-gray-500 uppercase block mb-1">{labelMap[key] || key}</span>
+                                  <span className="text-xs font-bold text-gray-900 dark:text-gray-300 uppercase block mb-1">{labelMap[key] || key}</span>
                                   <span className="font-medium text-gray-900 dark:text-white">{key === 'value' ? `₸${Number(value).toLocaleString()}` : String(value)}</span>
                               </div>
                           );
@@ -907,7 +925,7 @@ const CRM: React.FC<CRMProps> = ({
                    </div>
 
                    {/* Linked Contacts Logic (if Company) */}
-                   {activeTab === 'COMPANIES' && (
+                   {activeTab === 'COMPANIES' && selectedItem && (
                        <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
                            <h4 className="font-bold text-gray-900 dark:text-white mb-3">Связанные люди</h4>
                            <div className="space-y-2">
@@ -925,19 +943,7 @@ const CRM: React.FC<CRMProps> = ({
                        </div>
                    )}
                </div>
-               
-               <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 flex gap-3">
-                   <button onClick={() => { setIsDetailModalOpen(false); openModal(selectedItem); }} className="flex-1 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl font-bold shadow-sm hover:shadow-md transition-all text-gray-700 dark:text-white">Редактировать</button>
-                   {/* Call/Email Buttons */}
-                   {selectedItem.phone && (
-                       <a href={`tel:${selectedItem.phone}`} className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-lg shadow-green-500/20 transition-all text-center flex items-center justify-center gap-2">
-                           <Phone className="w-4 h-4"/> Позвонить
-                       </a>
-                   )}
-               </div>
-           </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 };

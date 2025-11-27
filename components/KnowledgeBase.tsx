@@ -1,7 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Article } from '../types';
-import { BookOpen, ChevronRight, Plus, X, Trash2, MoreVertical, Pencil, Search, Bold, Italic, List } from 'lucide-react';
+import { BookOpen, ChevronRight, Plus, Trash2, MoreVertical, Pencil, Search, Bold, Italic, List } from 'lucide-react';
+import Modal from './ui/Modal';
+import Button from './ui/Button';
 
 interface KBProps {
   articles: Article[];
@@ -114,13 +116,12 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
                Личная
              </button>
           </div>
-          <button 
+          <Button 
              onClick={() => setIsModalOpen(true)}
-             className="px-5 py-2.5 bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 rounded-xl flex items-center gap-2 font-bold shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all hover:-translate-y-0.5"
+             icon={<Plus className="w-5 h-5" />}
           >
-             <Plus className="w-5 h-5" />
              <span className="hidden md:inline">Добавить статью</span>
-          </button>
+          </Button>
        </div>
 
       <div className="flex-1 flex gap-6 overflow-hidden flex-col md:flex-row">
@@ -224,23 +225,24 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
       </div>
 
       {/* Add Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh] overflow-hidden">
-               <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
-                   <h3 className="text-xl font-bold text-gray-900 dark:text-white">Новая статья</h3>
-                   <button onClick={() => setIsModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"><X className="w-5 h-5" /></button>
-               </div>
-               <form onSubmit={handleAdd} className="p-6 space-y-5 overflow-y-auto">
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Новая статья"
+        footer={
+           <Button onClick={handleAdd}>Сохранить</Button>
+        }
+      >
+               <form onSubmit={handleAdd} className="space-y-5">
                    <div className="space-y-1.5">
-                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Заголовок</label>
+                       <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300">Заголовок</label>
                        <input 
                          value={newArticle.title} onChange={e => setNewArticle({...newArticle, title: e.target.value})} 
                          className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" required 
                        />
                    </div>
                    <div className="space-y-1.5">
-                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Категория</label>
+                       <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300">Категория</label>
                        <input 
                          value={newArticle.category} onChange={e => setNewArticle({...newArticle, category: e.target.value})} 
                          placeholder="Например: HR, IT, Инструкции"
@@ -248,7 +250,7 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
                        />
                    </div>
                    <div className="space-y-1.5">
-                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Содержание</label>
+                       <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300">Содержание</label>
                        {/* Toolbar */}
                        <div className="flex gap-2 mb-2">
                            <button type="button" onClick={() => insertFormatting('bold')} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500" title="Жирный"><Bold className="w-4 h-4"/></button>
@@ -262,13 +264,8 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
                          className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all resize-none font-mono" required 
                        />
                    </div>
-                   <div className="flex justify-end pt-2">
-                       <button type="submit" className="px-5 py-2.5 bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 rounded-xl font-bold shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all">Сохранить</button>
-                   </div>
                </form>
-           </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 };

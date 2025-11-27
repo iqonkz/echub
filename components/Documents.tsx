@@ -2,6 +2,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { DocumentItem, User } from '../types';
 import { FileText, Download, HardDrive, File as FileIcon, Image, Trash2, Info, Upload, X, Search, FileUp, Eye } from 'lucide-react';
+import Modal from './ui/Modal';
+import Button from './ui/Button';
 
 interface DocumentsProps {
   docs: DocumentItem[];
@@ -190,12 +192,12 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Документооборот</h2>
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Управление файлами и архивами</p>
         </div>
-        <button 
+        <Button 
            onClick={() => setIsUploadModalOpen(true)}
-           className="bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 hover:-translate-y-0.5 transition-all"
+           icon={<Upload className="w-5 h-5" />}
         >
-            <Upload className="w-5 h-5" /> Загрузить файл
-        </button>
+            Загрузить файл
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-8">
@@ -283,15 +285,12 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
       </div>
 
       {/* Upload Modal */}
-      {isUploadModalOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]">
-               <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
-                   <h3 className="text-xl font-bold text-gray-900 dark:text-white">Загрузка документа</h3>
-                   <button onClick={() => { setIsUploadModalOpen(false); setSelectedFile(null); }} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400"><X className="w-5 h-5" /></button>
-               </div>
-               
-               <form onSubmit={handleUpload} className="p-6 flex-1 flex flex-col gap-5 overflow-y-auto">
+      <Modal
+        isOpen={isUploadModalOpen}
+        onClose={() => { setIsUploadModalOpen(false); setSelectedFile(null); }}
+        title="Загрузка документа"
+      >
+               <form onSubmit={handleUpload} className="flex flex-col gap-5">
                   {/* Drag and Drop Area */}
                   <div 
                     className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center text-center transition-all cursor-pointer ${dragActive ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/10' : 'border-gray-300 dark:border-gray-600 hover:border-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
@@ -325,7 +324,7 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
                   </div>
 
                   <div className="space-y-1.5">
-                      <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Источник / Контекст</label>
+                      <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300">Источник / Контекст</label>
                       <input 
                         value={sourceContext} 
                         onChange={e => setSourceContext(e.target.value)}
@@ -335,34 +334,32 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
                   </div>
                   
                   <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
-                      <button 
+                      <Button 
                         type="submit" 
                         disabled={!selectedFile}
-                        className="px-6 py-3 bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 rounded-xl font-bold shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Загрузить
-                      </button>
+                      </Button>
                   </div>
                </form>
-           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Preview Modal */}
-      {isPreviewModalOpen && previewDoc && (
-          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-md p-4 animate-fade-in">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden">
-                  <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
-                      <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                          <Eye className="w-4 h-4" /> Предпросмотр: {previewDoc.name}
-                      </h3>
-                      <button onClick={() => setIsPreviewModalOpen(false)} className="text-gray-500 hover:text-gray-900 dark:hover:text-white"><X className="w-5 h-5"/></button>
-                  </div>
-                  <div className="flex-1 bg-gray-200 dark:bg-gray-900 flex items-center justify-center p-4">
-                      {fileRegistry[previewDoc.id] ? (
+      <Modal
+        isOpen={isPreviewModalOpen && !!previewDoc}
+        onClose={() => setIsPreviewModalOpen(false)}
+        title={
+            <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4" /> Предпросмотр: {previewDoc?.name}
+            </div>
+        }
+        size="xl"
+      >
+                  <div className="flex-1 bg-gray-200 dark:bg-gray-900 flex items-center justify-center p-4 min-h-[60vh]">
+                      {previewDoc && fileRegistry[previewDoc.id] ? (
                           <iframe 
                               src={URL.createObjectURL(fileRegistry[previewDoc.id])} 
-                              className="w-full h-full bg-white rounded-lg shadow-inner" 
+                              className="w-full h-full bg-white rounded-lg shadow-inner min-h-[60vh]" 
                               title="PDF Preview"
                           />
                       ) : (
@@ -373,9 +370,7 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
                         </div>
                       )}
                   </div>
-              </div>
-          </div>
-      )}
+      </Modal>
     </div>
   );
 };

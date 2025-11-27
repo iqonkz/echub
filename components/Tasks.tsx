@@ -2,6 +2,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Task, TaskStatus, User, TeamMember, Project } from '../types';
 import { Clock, User as UserIcon, Flag, Plus, Trash2, ChevronDown, ChevronRight, Layers, X, Calendar, FolderOpen, ArrowLeft, Pencil, CheckCircle2, Eye, Lock, Globe, Settings2, Users, Check, ArrowUpDown } from 'lucide-react';
+import Modal from './ui/Modal';
+import Button from './ui/Button';
+import Switch from './ui/Switch';
 
 interface TasksProps {
   tasks: Task[];
@@ -15,6 +18,7 @@ interface TasksProps {
   currentUser?: User;
   openEditTask?: (task: Task) => void;
   team: TeamMember[];
+  initialTab?: 'PROJECTS' | 'TASKS';
 }
 
 type MainTab = 'PROJECTS' | 'TASKS';
@@ -97,10 +101,10 @@ const StatusSelect = ({ currentStatus, onChange }: { currentStatus: TaskStatus, 
     );
   };
 
-const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAddTask, onDeleteTask, onAddProject, onUpdateProject, searchQuery, currentUser, openEditTask, team }) => {
+const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAddTask, onDeleteTask, onAddProject, onUpdateProject, searchQuery, currentUser, openEditTask, team, initialTab = 'PROJECTS' }) => {
   const statusColumns = Object.values(TaskStatus);
   
-  const [mainTab, setMainTab] = useState<MainTab>('PROJECTS');
+  const [mainTab, setMainTab] = useState<MainTab>(initialTab);
   const [taskFilterTab, setTaskFilterTab] = useState<TaskFilterTab>('ALL');
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('LIST');
@@ -655,16 +659,14 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
       </div>
 
       {/* New Project Modal */}
-      {isProjectModalOpen && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-             <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-sm border border-white/20 dark:border-gray-700 overflow-hidden">
-                <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
-                   <h3 className="text-lg font-bold text-gray-900 dark:text-white">Новый проект</h3>
-                   <button onClick={() => setIsProjectModalOpen(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-400"><X className="w-5 h-5" /></button>
-                </div>
-                <form onSubmit={handleSaveProject} className="p-6 flex flex-col gap-5">
+      <Modal
+        isOpen={isProjectModalOpen}
+        onClose={() => setIsProjectModalOpen(false)}
+        title="Новый проект"
+      >
+                <form onSubmit={handleSaveProject} className="flex flex-col gap-5">
                    <div>
-                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1.5">Название проекта</label>
+                       <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-1.5">Название проекта</label>
                        <input 
                           value={projectForm.name || ''} 
                           onChange={e => setProjectForm({...projectForm, name: e.target.value})} 
@@ -676,7 +678,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                    </div>
                    
                    <div>
-                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-2">Цвет обложки</label>
+                       <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-2">Цвет обложки</label>
                        <div className="flex flex-wrap gap-2">
                            {PROJECT_COLORS.map(color => (
                                <button
@@ -691,25 +693,29 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                        </div>
                    </div>
 
-                   <button type="submit" className="w-full bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 font-bold py-3 rounded-xl shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all">Создать</button>
+                   <Button type="submit">Создать</Button>
                 </form>
-             </div>
-          </div>
-      )}
+      </Modal>
       
       {/* Project Settings Modal */}
-      {isProjectSettingsOpen && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-             <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-md border border-white/20 dark:border-gray-700 overflow-hidden">
-                <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
-                   <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                       <Settings2 className="w-5 h-5" /> Настройки проекта
-                   </h3>
-                   <button onClick={() => setIsProjectSettingsOpen(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-400"><X className="w-5 h-5" /></button>
-                </div>
-                <form onSubmit={handleSaveProject} className="p-6 space-y-6">
+      <Modal
+        isOpen={isProjectSettingsOpen}
+        onClose={() => setIsProjectSettingsOpen(false)}
+        title={
+          <div className="flex items-center gap-2">
+            <Settings2 className="w-5 h-5" /> Настройки проекта
+          </div>
+        }
+        footer={
+           <>
+              <Button variant="ghost" onClick={() => setIsProjectSettingsOpen(false)}>Отмена</Button>
+              <Button onClick={handleSaveProject}>Сохранить</Button>
+           </>
+        }
+      >
+                <form onSubmit={handleSaveProject} className="space-y-6">
                    <div>
-                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1.5">Название</label>
+                       <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-1.5">Название</label>
                        <input 
                           value={projectForm.name || ''} 
                           onChange={e => setProjectForm({...projectForm, name: e.target.value})} 
@@ -718,7 +724,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                    </div>
 
                    <div>
-                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-2">Цвет обложки</label>
+                       <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-2">Цвет обложки</label>
                        <div className="flex flex-wrap gap-2">
                            {PROJECT_COLORS.map(color => (
                                <button
@@ -734,7 +740,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                    </div>
 
                    <div>
-                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-2">Доступ</label>
+                       <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-2">Доступ</label>
                        <div className="grid grid-cols-2 gap-3">
                            <button 
                              type="button"
@@ -757,7 +763,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                    
                    {projectForm.access === 'PRIVATE' && (
                        <div>
-                           <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-2">Кому доступен</label>
+                           <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-2">Кому доступен</label>
                            <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-xl divide-y divide-gray-100 dark:divide-gray-700">
                                {team.map(member => (
                                    <div key={member.id} onClick={() => toggleUserAccess(member.id)} className="p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
@@ -765,40 +771,33 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                                            <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold">{member.name.charAt(0)}</div>
                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{member.name}</span>
                                        </div>
-                                       <div className={`w-5 h-5 rounded border flex items-center justify-center ${projectForm.allowedUsers?.includes(member.id) ? 'bg-primary-500 border-primary-500 text-white' : 'border-gray-300 dark:border-gray-600'}`}>
-                                           {projectForm.allowedUsers?.includes(member.id) && <CheckCircle2 className="w-3.5 h-3.5" />}
-                                       </div>
+                                       <Switch 
+                                            checked={projectForm.allowedUsers?.includes(member.id) || false}
+                                            onChange={() => toggleUserAccess(member.id)}
+                                       />
                                    </div>
                                ))}
                            </div>
                        </div>
                    )}
-
-                   <div className="flex gap-3 justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
-                        <button type="button" onClick={() => setIsProjectSettingsOpen(false)} className="px-4 py-2 text-gray-500 font-bold hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">Отмена</button>
-                        <button type="submit" className="px-5 py-2 bg-primary-500 text-gray-900 font-bold rounded-xl shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all">Сохранить</button>
-                   </div>
                 </form>
-             </div>
-          </div>
-      )}
+      </Modal>
 
       {/* Task Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-md border border-white/20 dark:border-gray-700 overflow-hidden">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                   {editingTask ? 'Редактирование задачи' : (newTaskData.parentId ? 'Новая подзадача' : 'Новая задача')}
-                </h3>
-                <button onClick={() => setIsModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
-                    <X className="w-5 h-5" />
-                </button>
-            </div>
-
-            <form onSubmit={handleSaveTask} className="p-6 flex flex-col gap-5">
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingTask ? 'Редактирование задачи' : (newTaskData.parentId ? 'Новая подзадача' : 'Новая задача')}
+        footer={
+           <>
+              <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Отмена</Button>
+              <Button onClick={handleSaveTask}>Сохранить</Button>
+           </>
+        }
+      >
+            <form onSubmit={handleSaveTask} className="flex flex-col gap-5">
               <div>
-                  <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1.5">Заголовок <span className="text-red-500">*</span></label>
+                  <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-1.5">Заголовок <span className="text-red-500">*</span></label>
                   <input 
                     placeholder="Введите название задачи" 
                     className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-white" 
@@ -810,7 +809,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
               </div>
 
               <div>
-                  <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1.5">Описание</label>
+                  <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-1.5">Описание</label>
                   <textarea 
                     placeholder="Добавьте детали..." 
                     rows={3}
@@ -821,7 +820,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
               </div>
 
               <div>
-                  <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1.5">Проект</label>
+                  <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-1.5">Проект</label>
                   <div className="relative">
                     <FolderOpen className="absolute left-3 top-3 w-4 h-4 text-gray-400"/>
                     <select 
@@ -836,7 +835,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
 
               <div className="grid grid-cols-2 gap-5">
                   <div>
-                      <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1.5">Исполнитель</label>
+                      <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-1.5">Исполнитель</label>
                       <div className="relative">
                           <UserIcon className="absolute left-3 top-3 w-4 h-4 text-gray-400"/>
                           <select
@@ -856,7 +855,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                       </div>
                   </div>
                   <div>
-                      <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1.5">Наблюдатель</label>
+                      <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-1.5">Наблюдатель</label>
                       <div className="relative">
                           <Eye className="absolute left-3 top-3 w-4 h-4 text-gray-400"/> 
                           <select
@@ -879,7 +878,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
 
               <div className="grid grid-cols-2 gap-5">
                  <div>
-                    <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1.5">Приоритет</label>
+                    <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-1.5">Приоритет</label>
                     <div className="relative">
                         <Flag className="absolute left-3 top-3 w-4 h-4 text-gray-400"/>
                         <select 
@@ -894,7 +893,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                     </div>
                  </div>
                  <div>
-                    <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1.5">Крайний срок</label>
+                    <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-1.5">Крайний срок</label>
                     <div className="relative">
                         <Calendar className="absolute left-3 top-3 w-4 h-4 text-gray-400"/>
                         <input 
@@ -906,15 +905,8 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                     </div>
                  </div>
               </div>
-
-              <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">Отмена</button>
-                <button type="submit" className="px-5 py-2.5 text-sm font-bold bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 rounded-xl shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all hover:-translate-y-0.5">Сохранить</button>
-              </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 };

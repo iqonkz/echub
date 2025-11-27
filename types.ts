@@ -3,6 +3,7 @@ export enum ModuleType {
   HOME = 'HOME',
   CRM = 'CRM',
   PROJECTS = 'PROJECTS',
+  TASKS = 'TASKS',
   CALENDAR = 'CALENDAR',
   DOCUMENTS = 'DOCUMENTS',
   KNOWLEDGE = 'KNOWLEDGE',
