@@ -219,6 +219,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, onNavigate }) => {
                 </Pie>
                 <Tooltip 
                    contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '12px', color: '#f3f4f6', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
+                   itemStyle={{ color: '#fff' }}
                 />
                 <Legend 
                     verticalAlign="bottom" 

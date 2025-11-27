@@ -61,6 +61,7 @@ export interface Project {
   name: string;
   access: 'PUBLIC' | 'PRIVATE' | 'CUSTOM';
   allowedUsers: string[]; // User IDs
+  color?: string;
 }
 
 export interface Task {
@@ -179,4 +180,16 @@ export interface AppPermissions {
     ADMIN: RolePermissions;
     MANAGER: RolePermissions;
     EMPLOYEE: RolePermissions;
+}
+
+// --- Recycle Bin ---
+export interface DeletedItem {
+    id: string;
+    originalId: string;
+    collectionName: string;
+    data: any;
+    deletedAt: string;
+    deletedBy: string;
+    displayTitle: string; // Helper for UI
+    typeLabel: string; // Helper for UI (e.g., "Сделка", "Задача")
 }

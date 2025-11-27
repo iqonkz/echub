@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Task, TaskStatus, CrmActivity } from '../types';
-import { ChevronLeft, ChevronRight, Plus, CheckSquare, Zap, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, CheckSquare, Zap, X, Settings, Calendar as CalendarIcon } from 'lucide-react';
 
 interface CalendarProps {
   tasks: Task[];
@@ -17,27 +17,47 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
   const [viewMode, setViewMode] = useState<ViewMode>('MONTH');
   const [popoverDate, setPopoverDate] = useState<string | null>(null);
 
+  // Working Days State (0 = Sun, 1 = Mon, ..., 6 = Sat)
+  // Default: Mon(1) to Fri(5)
+  const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]); 
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   // New Activity Modal State
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   const [newActivityData, setNewActivityData] = useState<Partial<CrmActivity>>({});
 
   const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+  const dayNamesShort = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+
+  // Helper: Get Local Date String (YYYY-MM-DD) to fix "tomorrow" bug
+  const toLocalISOString = (date: Date) => {
+    const offset = date.getTimezoneOffset() * 60000; // offset in milliseconds
+    const localDate = new Date(date.getTime() - offset);
+    return localDate.toISOString().split('T')[0];
+  };
 
   // Helper: Get Days for Month View
   const getMonthDays = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    // Adjust logic to start grid on Monday (1) instead of Sunday (0)
+    let firstDayOfMonth = new Date(year, month, 1).getDay();
+    // Convert Sunday(0) to 7 for easier math if we want Mon-Sun
+    // However, JS Date.getDay() is 0=Sun. 
+    // Let's standard: Grid always starts Mon (index 0 for our grid logic) -> Sun (index 6)
+    // Map JS Day: 0(Sun)->6, 1(Mon)->0, 2(Tue)->1...
     const startOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+    
     return { daysInMonth, startOffset };
   };
 
   // Helper: Get Days for Week View
   const getWeekDays = (date: Date) => {
     const current = new Date(date);
-    const day = current.getDay();
-    const diff = current.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+    const day = current.getDay(); // 0-6 (Sun-Sat)
+    // Align to Monday start
+    const diff = current.getDate() - day + (day === 0 ? -6 : 1); 
     
     const weekStart = new Date(current.setDate(diff));
     const days = [];
@@ -60,9 +80,8 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
   const handleQuickAdd = (type: 'Task' | 'Activity', dateStr: string) => {
       setPopoverDate(null);
       if (type === 'Task' && onEditTask) {
-          // Trigger the task modal
           onEditTask({
-              id: '', // Empty ID signals new task
+              id: '', 
               title: '',
               description: '',
               assignee: 'Админ',
@@ -72,7 +91,6 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
               project: 'Общее'
           });
       } else if (type === 'Activity') {
-          // Open activity modal
           setNewActivityData({
               date: dateStr,
               status: 'Запланировано',
@@ -92,20 +110,78 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
               subject: newActivityData.subject || 'Новое действие',
               date: newActivityData.date || new Date().toISOString().split('T')[0],
               status: 'Запланировано',
-              relatedEntityId: '' // Optional or linked later
+              relatedEntityId: ''
           };
           onAddActivity(activity);
       }
       setIsActivityModalOpen(false);
   };
 
-  const renderCell = (date: Date, isWeekView = false) => {
-    const dateStr = date.toISOString().split('T')[0];
+  const toggleWorkingDay = (dayIndex: number) => {
+      if (workingDays.includes(dayIndex)) {
+          // Prevent removing all days
+          if (workingDays.length > 1) {
+              setWorkingDays(workingDays.filter(d => d !== dayIndex));
+          }
+      } else {
+          setWorkingDays([...workingDays, dayIndex].sort());
+      }
+  };
+
+  // --- Render Logic ---
+
+  // Generate the days to display based on view mode
+  const getVisibleDays = () => {
+      if (viewMode === 'MONTH') {
+          // Month view always shows Mon-Sun structure (7 cols) for alignment
+          const { daysInMonth, startOffset } = getMonthDays(currentDate);
+          
+          // Blanks before start
+          const blanks = Array.from({ length: startOffset }, (_, i) => ({ type: 'blank', key: `blank-${i}` }));
+          
+          // Actual Days
+          const days = Array.from({ length: daysInMonth }, (_, i) => {
+              const d = new Date(currentDate.getFullYear(), currentDate.getMonth(), i + 1);
+              return { type: 'day', date: d, key: toLocalISOString(d) };
+          });
+          
+          return [...blanks, ...days];
+      } else {
+          // Week view: Only show WORKING days
+          const allWeekDays = getWeekDays(currentDate);
+          return allWeekDays
+             .filter(d => workingDays.includes(d.getDay()))
+             .map(d => ({ type: 'day', date: d, key: toLocalISOString(d) }));
+      }
+  };
+
+  const visibleCells = getVisibleDays();
+
+  // Define Columns Logic
+  const gridColumnsCount = viewMode === 'MONTH' ? 7 : workingDays.length;
+
+  // Header Labels
+  const orderedDayIndices = [1, 2, 3, 4, 5, 6, 0]; 
+  
+  const visibleHeaderIndices = viewMode === 'MONTH' 
+     ? orderedDayIndices 
+     : orderedDayIndices.filter(d => workingDays.includes(d));
+
+  const renderCell = (cell: any, isWeekView = false) => {
+    if (cell.type === 'blank') {
+        return <div key={cell.key} className="bg-gray-50/30 dark:bg-gray-900/20 min-h-[120px] border border-gray-100 dark:border-gray-800/50"></div>;
+    }
+
+    const date: Date = cell.date;
+    const dateStr = toLocalISOString(date);
     const dayTasks = tasks.filter(t => t.dueDate === dateStr && t.status !== TaskStatus.DONE);
-    const isToday = new Date().toISOString().split('T')[0] === dateStr;
+    
+    // Correct "Today" check using local strings
+    const todayStr = toLocalISOString(new Date());
+    const isToday = todayStr === dateStr;
 
     return (
-      <div key={dateStr} className={`bg-white/50 dark:bg-gray-800/50 p-2 border border-gray-100 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-700 transition-all group relative backdrop-blur-sm ${isWeekView ? 'min-h-[400px]' : 'min-h-[120px]'}`}>
+      <div key={cell.key} className={`bg-white/50 dark:bg-gray-800/50 p-2 border border-gray-100 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-700 transition-all group relative backdrop-blur-sm ${isWeekView ? 'min-h-[400px]' : 'min-h-[120px]'}`}>
         <div className="flex justify-between items-start mb-2">
            <span className={`text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full transition-colors ${
              isToday ? 'bg-primary-500 text-gray-900 shadow-md' : 'text-gray-700 dark:text-gray-300 group-hover:bg-gray-100 dark:group-hover:bg-gray-600'
@@ -151,38 +227,34 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
     );
   };
 
-  const renderMonth = () => {
-      const { daysInMonth, startOffset } = getMonthDays(currentDate);
-      const blanks = Array.from({ length: startOffset }, (_, i) => (
-        <div key={`blank-${i}`} className="bg-gray-50/30 dark:bg-gray-900/20 min-h-[120px] border border-gray-100 dark:border-gray-800/50"></div>
-      ));
-      const days = Array.from({ length: daysInMonth }, (_, i) => {
-          const d = new Date(currentDate.getFullYear(), currentDate.getMonth(), i + 1);
-          return renderCell(d);
-      });
-      return [...blanks, ...days];
-  };
-
-  const renderWeek = () => {
-      const days = getWeekDays(currentDate);
-      return days.map(d => renderCell(d, true));
-  };
-
   return (
     <div className="h-[calc(100vh-80px)] md:h-[calc(100vh-140px)] flex flex-col">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 flex-shrink-0">
-         <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-4">
-            <div className="flex items-center bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-1">
-              <button onClick={() => changeDate(-1)} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500"><ChevronLeft className="w-5 h-5" /></button>
-              <span className="px-4 font-bold min-w-[160px] text-center text-sm md:text-base text-gray-900 dark:text-white">
-                  {viewMode === 'MONTH' 
-                    ? `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}` 
-                    : `Неделя ${currentDate.getDate()} ${monthNames[currentDate.getMonth()]}`
-                  }
-              </span>
-              <button onClick={() => changeDate(1)} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500"><ChevronRight className="w-5 h-5" /></button>
-            </div>
-         </h2>
+         <div className="flex items-center gap-3">
+             <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-4">
+                <div className="flex items-center bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-1">
+                  <button onClick={() => changeDate(-1)} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500"><ChevronLeft className="w-5 h-5" /></button>
+                  <span className="px-4 font-bold min-w-[160px] text-center text-sm md:text-base text-gray-900 dark:text-white">
+                      {viewMode === 'MONTH' 
+                        ? `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}` 
+                        : `Неделя ${currentDate.getDate()} ${monthNames[currentDate.getMonth()]}`
+                      }
+                  </span>
+                  <button onClick={() => changeDate(1)} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500"><ChevronRight className="w-5 h-5" /></button>
+                </div>
+             </h2>
+
+            {/* Working Days Settings - Modal Trigger */}
+             <div className="relative">
+                 <button 
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="p-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500 transition-colors"
+                 >
+                     <Settings className="w-5 h-5" />
+                 </button>
+             </div>
+         </div>
+
          <div className="flex gap-1 bg-white dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
             <button 
                 onClick={() => setViewMode('WEEK')}
@@ -200,59 +272,97 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
       </div>
 
       <div className="flex flex-col bg-gray-200 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none flex-1">
-         <div className="grid grid-cols-7 gap-px flex-shrink-0">
-            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(d => (
-            <div key={d} className="bg-white dark:bg-gray-800 py-3 text-center text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                {d}
-            </div>
-            ))}
-         </div>
-         <div className="grid grid-cols-7 gap-px flex-1 overflow-y-auto min-h-0">
-             {viewMode === 'MONTH' ? renderMonth() : renderWeek()}
+         <div 
+            className="grid gap-px flex-1 overflow-y-auto min-h-0 bg-gray-200 dark:bg-gray-700"
+            style={{ gridTemplateColumns: `repeat(${gridColumnsCount}, minmax(0, 1fr))` }}
+         >
+             {/* Sticky Headers */}
+             {visibleHeaderIndices.map(d => (
+                 <div key={`header-${d}`} className="sticky top-0 z-10 bg-white dark:bg-gray-800 py-3 text-center text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider shadow-sm">
+                     {dayNamesShort[d]}
+                 </div>
+             ))}
+
+             {/* Cells */}
+             {visibleCells.map(cell => renderCell(cell, viewMode === 'WEEK'))}
          </div>
       </div>
+
+      {/* Settings Modal (Centered Overlay) */}
+      {isSettingsOpen && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
+              <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-sm border border-white/20 dark:border-gray-700 overflow-hidden">
+                  <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                          <CalendarIcon className="w-5 h-5" /> Рабочие дни
+                      </h3>
+                      <button onClick={() => setIsSettingsOpen(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-400"><X className="w-5 h-5"/></button>
+                  </div>
+                  <div className="p-6 space-y-2">
+                      {orderedDayIndices.map(dayIndex => (
+                         <label key={dayIndex} className="flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 p-3 rounded-xl transition-colors border border-transparent hover:border-gray-100 dark:hover:border-gray-700">
+                             <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{dayNamesShort[dayIndex]}</span>
+                             <div className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all ${workingDays.includes(dayIndex) ? 'bg-primary-500 border-primary-500 scale-105' : 'border-gray-300 dark:border-gray-600'}`}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={workingDays.includes(dayIndex)}
+                                  onChange={() => toggleWorkingDay(dayIndex)}
+                                  className="hidden"
+                                />
+                                {workingDays.includes(dayIndex) && <CheckSquare className="w-4 h-4 text-white" />}
+                             </div>
+                         </label>
+                      ))}
+                      <button onClick={() => setIsSettingsOpen(false)} className="w-full mt-4 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white font-bold py-3 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">Закрыть</button>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* Activity Modal */}
       {isActivityModalOpen && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+             <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-sm border border-white/20 dark:border-gray-700 overflow-hidden">
                 <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white">Новое действие</h3>
                     <button onClick={() => setIsActivityModalOpen(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-400"><X className="w-5 h-5"/></button>
                 </div>
-                <form onSubmit={handleSaveActivity} className="p-6 space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1.5">Тема</label>
-                        <input 
-                            value={newActivityData.subject || ''}
-                            onChange={e => setNewActivityData({...newActivityData, subject: e.target.value})}
-                            className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all"
-                            autoFocus
-                            required
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1.5">Тип</label>
-                        <select 
-                             value={newActivityData.type || 'Звонок'}
-                             onChange={e => setNewActivityData({...newActivityData, type: e.target.value as any})}
-                             className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all"
-                        >
-                            <option value="Звонок">Звонок</option>
-                            <option value="Встреча">Встреча</option>
-                            <option value="Email">Email</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1.5">Дата</label>
-                        <input 
-                             type="date"
-                             value={newActivityData.date || ''}
-                             onChange={e => setNewActivityData({...newActivityData, date: e.target.value})}
-                             className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all"
-                        />
-                    </div>
-                    <button type="submit" className="w-full bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 font-bold py-3 rounded-xl shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all mt-2">Сохранить</button>
+                <form onSubmit={handleSaveActivity} className="p-6 space-y-5">
+                   <div className="space-y-1.5">
+                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Тема</label>
+                       <input 
+                          value={newActivityData.subject || ''} 
+                          onChange={e => setNewActivityData({...newActivityData, subject: e.target.value})}
+                          className="w-full p-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-sm text-gray-900 dark:text-white" 
+                          autoFocus
+                          required
+                       />
+                   </div>
+                   <div className="space-y-1.5">
+                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Тип</label>
+                       <select 
+                          value={newActivityData.type || 'Звонок'} 
+                          onChange={e => setNewActivityData({...newActivityData, type: e.target.value as any})}
+                          className="w-full p-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-sm text-gray-900 dark:text-white"
+                       >
+                           <option value="Звонок">Звонок</option>
+                           <option value="Встреча">Встреча</option>
+                           <option value="Email">Email</option>
+                       </select>
+                   </div>
+                   <div className="space-y-1.5">
+                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Дата</label>
+                       <input 
+                          type="date"
+                          value={newActivityData.date || ''} 
+                          onChange={e => setNewActivityData({...newActivityData, date: e.target.value})}
+                          className="w-full p-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-sm text-gray-900 dark:text-white" 
+                          required
+                       />
+                   </div>
+                   <div className="flex justify-end pt-2">
+                       <button type="submit" className="px-5 py-2.5 bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 rounded-xl font-bold shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all">Сохранить</button>
+                   </div>
                 </form>
              </div>
           </div>

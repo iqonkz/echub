@@ -1,8 +1,7 @@
 
 import React, { useState } from 'react';
-import { User, Bell, Lock, Moon, Sun, LogOut, Activity, Smartphone, Type, Monitor, Send, Save, Users, Plus, Edit, Trash2, X, Laptop, Shield, Key } from 'lucide-react';
-import { SystemLog, ModuleType, User as UserType, TeamMember, AppRole, PermissionAction, AppPermissions } from '../types';
-import { INITIAL_PERMISSIONS } from '../constants';
+import { User, Bell, Lock, Moon, Sun, LogOut, Activity, Smartphone, Type, Monitor, Send, Save, Users, Plus, Edit, Trash2, X, Laptop, Shield, Key, ArchiveRestore, RefreshCcw } from 'lucide-react';
+import { SystemLog, ModuleType, User as UserType, TeamMember, AppRole, PermissionAction, AppPermissions, DeletedItem } from '../types';
 
 interface SettingsProps {
   currentUser: UserType;
@@ -24,13 +23,17 @@ interface SettingsProps {
   onDeleteTeamMember: (id: string) => void;
   permissions?: AppPermissions;
   onUpdatePermissions?: (permissions: AppPermissions) => void;
+  trashItems?: DeletedItem[];
+  onRestore?: (item: DeletedItem) => void;
+  onPermanentDelete?: (id: string) => void;
 }
 
 const Settings: React.FC<SettingsProps> = ({ 
     currentUser, onUpdateProfile, onLogout, isDarkMode, toggleTheme, logs, mobileMenuConfig, onUpdateMobileConfig,
-    appSettings, onUpdateAppSettings, team, onAddTeamMember, onUpdateTeamMember, onDeleteTeamMember, permissions, onUpdatePermissions
+    appSettings, onUpdateAppSettings, team, onAddTeamMember, onUpdateTeamMember, onDeleteTeamMember, permissions, onUpdatePermissions,
+    trashItems, onRestore, onPermanentDelete
 }) => {
-  const [activeTab, setActiveTab] = useState<'PROFILE' | 'APPEARANCE' | 'TEAM' | 'RIGHTS' | 'LOGS' | 'MOBILE'>('PROFILE');
+  const [activeTab, setActiveTab] = useState<'PROFILE' | 'APPEARANCE' | 'TEAM' | 'RIGHTS' | 'TRASH' | 'LOGS' | 'MOBILE'>('PROFILE');
   
   // Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -44,9 +47,6 @@ const Settings: React.FC<SettingsProps> = ({
   // CRM Invite State
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteSent, setInviteSent] = useState(false);
-
-  // Local permissions state for editing (if needed), though we can pass directly
-  // Using 'permissions' prop directly.
 
   const toggleModule = (module: ModuleType) => {
      if (!mobileMenuConfig || !onUpdateMobileConfig) return;
@@ -107,7 +107,6 @@ const Settings: React.FC<SettingsProps> = ({
       if (!permissions || !onUpdatePermissions) return;
       
       const newPermissions = { ...permissions };
-      // Deep clone to avoid mutation issues
       const rolePerms = { ...newPermissions[role] };
       const modulePerms = { ...rolePerms[module] };
       
@@ -143,6 +142,21 @@ const Settings: React.FC<SettingsProps> = ({
       {key: 'EXPORT', label: 'Экспорт'},
       {key: 'IMPORT', label: 'Импорт'}
   ];
+  
+  // Tab styling helper
+  const getTabStyle = (tab: string) => {
+     return `px-4 py-2 text-sm rounded-xl whitespace-nowrap transition-all font-medium ${activeTab === tab ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`;
+  };
+
+  // Days left calculation helper
+  const getDaysLeft = (deletedAt: string) => {
+      const deleteDate = new Date(deletedAt);
+      const expirationDate = new Date(deleteDate.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
+      const now = new Date();
+      const diffTime = expirationDate.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays > 0 ? diffDays : 0;
+  };
 
   return (
     <div className="max-w-4xl mx-auto pb-24">
@@ -152,16 +166,17 @@ const Settings: React.FC<SettingsProps> = ({
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Управление аккаунтом и системой</p>
         </div>
         <div className="flex bg-white dark:bg-gray-800 p-1.5 rounded-2xl overflow-x-auto max-w-full no-scrollbar shadow-sm border border-gray-200 dark:border-gray-700">
-          <button onClick={() => setActiveTab('PROFILE')} className={`px-4 py-2 text-sm rounded-xl whitespace-nowrap transition-all font-medium ${activeTab === 'PROFILE' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Профиль</button>
+          <button onClick={() => setActiveTab('PROFILE')} className={getTabStyle('PROFILE')}>Профиль</button>
           {currentUser.role === 'ADMIN' && (
               <>
-                <button onClick={() => setActiveTab('TEAM')} className={`px-4 py-2 text-sm rounded-xl whitespace-nowrap transition-all font-medium ${activeTab === 'TEAM' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Команда</button>
-                <button onClick={() => setActiveTab('RIGHTS')} className={`px-4 py-2 text-sm rounded-xl whitespace-nowrap transition-all font-medium ${activeTab === 'RIGHTS' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Права</button>
+                <button onClick={() => setActiveTab('TEAM')} className={getTabStyle('TEAM')}>Команда</button>
+                <button onClick={() => setActiveTab('RIGHTS')} className={getTabStyle('RIGHTS')}>Права</button>
               </>
           )}
-          <button onClick={() => setActiveTab('APPEARANCE')} className={`px-4 py-2 text-sm rounded-xl whitespace-nowrap transition-all font-medium ${activeTab === 'APPEARANCE' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Внешний вид</button>
-          <button onClick={() => setActiveTab('MOBILE')} className={`px-4 py-2 text-sm rounded-xl whitespace-nowrap transition-all font-medium ${activeTab === 'MOBILE' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Меню</button>
-          <button onClick={() => setActiveTab('LOGS')} className={`px-4 py-2 text-sm rounded-xl whitespace-nowrap transition-all font-medium ${activeTab === 'LOGS' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Логи</button>
+          <button onClick={() => setActiveTab('APPEARANCE')} className={getTabStyle('APPEARANCE')}>Внешний вид</button>
+          <button onClick={() => setActiveTab('TRASH')} className={getTabStyle('TRASH')}>Корзина</button>
+          <button onClick={() => setActiveTab('MOBILE')} className={getTabStyle('MOBILE')}>Меню</button>
+          <button onClick={() => setActiveTab('LOGS')} className={getTabStyle('LOGS')}>Логи</button>
         </div>
       </div>
 
@@ -254,31 +269,6 @@ const Settings: React.FC<SettingsProps> = ({
                  </button>
               </div>
         </div>
-
-        {/* CRM Invite Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
-                <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                    <Send className="w-5 h-5 text-blue-500" /> 
-                </div>
-                Пригласить в CRM
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-6 text-sm">Отправьте приглашение коллеге для доступа к системе.</p>
-            <form onSubmit={handleInvite} className="flex gap-3">
-                <input 
-                   type="email" 
-                   placeholder="colleague@engineering-centre.com" 
-                   value={inviteEmail}
-                   onChange={(e) => setInviteEmail(e.target.value)}
-                   className="flex-1 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-sm transition-all"
-                   required 
-                />
-                <button type="submit" className="bg-gray-900 dark:bg-gray-700 text-white px-6 py-3 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-600 transition-all font-bold shadow-lg shadow-gray-900/10 hover:-translate-y-0.5">
-                    Отправить
-                </button>
-            </form>
-            {inviteSent && <p className="text-sm font-bold text-green-500 mt-3 flex items-center gap-2 animate-fade-in"><span className="w-2 h-2 rounded-full bg-green-500"></span> Приглашение успешно отправлено!</p>}
-        </div>
       </div>
       )}
 
@@ -291,7 +281,7 @@ const Settings: React.FC<SettingsProps> = ({
               </div>
               
               <div className="overflow-x-auto">
-                  {/* Permissions Matrix */}
+                  {/* Permissions Matrix with Premium Checkboxes */}
                   <table className="w-full text-left text-sm">
                      <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs font-bold border-b border-gray-200 dark:border-gray-700">
                          <tr>
@@ -313,29 +303,31 @@ const Settings: React.FC<SettingsProps> = ({
                                      <tr key={`${module}-${action.key}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                                          <td className="px-6 py-3 text-gray-700 dark:text-gray-300 font-medium">{action.label}</td>
                                          <td className="px-6 py-3 text-center">
-                                             <input 
-                                                 type="checkbox" 
-                                                 checked={permissions?.ADMIN?.[module]?.[action.key] || false} 
-                                                 onChange={() => togglePermission('ADMIN', module, action.key)}
-                                                 className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer disabled:opacity-50"
-                                                 disabled={true} // Admins always have full rights usually, or self-lock prevention
-                                             />
+                                             <div className={`w-10 h-6 bg-primary-500 rounded-full p-1 transition-all mx-auto opacity-50 cursor-not-allowed`}>
+                                                 <div className="bg-white w-4 h-4 rounded-full shadow-md transform translate-x-4"></div>
+                                             </div>
                                          </td>
                                          <td className="px-6 py-3 text-center">
-                                              <input 
-                                                 type="checkbox" 
-                                                 checked={permissions?.MANAGER?.[module]?.[action.key] || false} 
-                                                 onChange={() => togglePermission('MANAGER', module, action.key)}
-                                                 className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                                             />
+                                             <label className="relative inline-flex items-center cursor-pointer justify-center">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={permissions?.MANAGER?.[module]?.[action.key] || false} 
+                                                    onChange={() => togglePermission('MANAGER', module, action.key)}
+                                                    className="sr-only peer"
+                                                />
+                                                <div className="w-10 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-500"></div>
+                                              </label>
                                          </td>
                                          <td className="px-6 py-3 text-center">
-                                              <input 
-                                                 type="checkbox" 
-                                                 checked={permissions?.EMPLOYEE?.[module]?.[action.key] || false} 
-                                                 onChange={() => togglePermission('EMPLOYEE', module, action.key)}
-                                                 className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                                             />
+                                              <label className="relative inline-flex items-center cursor-pointer justify-center">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={permissions?.EMPLOYEE?.[module]?.[action.key] || false} 
+                                                    onChange={() => togglePermission('EMPLOYEE', module, action.key)}
+                                                    className="sr-only peer"
+                                                />
+                                                <div className="w-10 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-500"></div>
+                                              </label>
                                          </td>
                                      </tr>
                                  ))}
@@ -345,6 +337,73 @@ const Settings: React.FC<SettingsProps> = ({
                   </table>
               </div>
           </div>
+      )}
+
+      {/* Recycle Bin Tab */}
+      {activeTab === 'TRASH' && (
+           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
+                <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <ArchiveRestore className="w-5 h-5 text-orange-500" /> Корзина
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">Удаленные элементы хранятся 30 дней.</p>
+                </div>
+                
+                {(!trashItems || trashItems.length === 0) ? (
+                    <div className="p-12 text-center text-gray-500 flex flex-col items-center">
+                        <Trash2 className="w-12 h-12 mb-3 text-gray-300" />
+                        <p>Корзина пуста</p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs font-bold border-b border-gray-200 dark:border-gray-700">
+                                <tr>
+                                    <th className="px-6 py-4">Элемент</th>
+                                    <th className="px-6 py-4">Тип</th>
+                                    <th className="px-6 py-4">Удалено</th>
+                                    <th className="px-6 py-4">Удалил</th>
+                                    <th className="px-6 py-4">Осталось</th>
+                                    <th className="px-6 py-4 text-right">Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                {trashItems.map(item => (
+                                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                        <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">{item.displayTitle}</td>
+                                        <td className="px-6 py-4 text-gray-500">{item.typeLabel}</td>
+                                        <td className="px-6 py-4 text-gray-500 text-xs">{new Date(item.deletedAt).toLocaleString()}</td>
+                                        <td className="px-6 py-4 text-gray-500">{item.deletedBy}</td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-xs font-bold text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded-md">
+                                                {getDaysLeft(item.deletedAt)} дн.
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <button 
+                                                    onClick={() => onRestore && onRestore(item)}
+                                                    className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
+                                                    title="Восстановить"
+                                                >
+                                                    <RefreshCcw className="w-4 h-4" />
+                                                </button>
+                                                <button 
+                                                    onClick={() => onPermanentDelete && onPermanentDelete(item.id)}
+                                                    className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
+                                                    title="Удалить навсегда"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+           </div>
       )}
 
       {activeTab === 'TEAM' && (
@@ -442,9 +501,9 @@ const Settings: React.FC<SettingsProps> = ({
                             <p className="text-sm text-gray-500 mt-1">Размер текста интерфейса</p>
                         </div>
                         <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
-                            <button onClick={() => onUpdateAppSettings({fontSize: 'small'})} className={`px-4 py-1.5 text-sm rounded-lg transition-all ${appSettings.fontSize === 'small' ? 'bg-white dark:bg-gray-600 shadow-sm font-bold text-gray-900 dark:text-white' : 'text-gray-500'}`}>Компактный</button>
-                            <button onClick={() => onUpdateAppSettings({fontSize: 'medium'})} className={`px-4 py-1.5 text-sm rounded-lg transition-all ${appSettings.fontSize === 'medium' ? 'bg-white dark:bg-gray-600 shadow-sm font-bold text-gray-900 dark:text-white' : 'text-gray-500'}`}>Средний</button>
-                            <button onClick={() => onUpdateAppSettings({fontSize: 'large'})} className={`px-4 py-1.5 text-sm rounded-lg transition-all ${appSettings.fontSize === 'large' ? 'bg-white dark:bg-gray-600 shadow-sm font-bold text-gray-900 dark:text-white' : 'text-gray-500'}`}>Большой</button>
+                            <button onClick={() => onUpdateAppSettings({fontSize: 'small'})} className={`px-4 py-1.5 text-sm rounded-lg transition-all ${appSettings.fontSize === 'small' ? 'bg-white dark:bg-gray-600 shadow-sm font-bold text-gray-900 dark:text-white' : 'text-gray-500'}`}>S</button>
+                            <button onClick={() => onUpdateAppSettings({fontSize: 'medium'})} className={`px-4 py-1.5 text-sm rounded-lg transition-all ${appSettings.fontSize === 'medium' ? 'bg-white dark:bg-gray-600 shadow-sm font-bold text-gray-900 dark:text-white' : 'text-gray-500'}`}>M</button>
+                            <button onClick={() => onUpdateAppSettings({fontSize: 'large'})} className={`px-4 py-1.5 text-sm rounded-lg transition-all ${appSettings.fontSize === 'large' ? 'bg-white dark:bg-gray-600 shadow-sm font-bold text-gray-900 dark:text-white' : 'text-gray-500'}`}>L</button>
                         </div>
                     </div>
 
@@ -534,7 +593,7 @@ const Settings: React.FC<SettingsProps> = ({
       {/* Add/Edit Team Member Modal */}
       {isTeamModalOpen && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-md border border-white/20 dark:border-gray-700 overflow-hidden">
                   <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
                       <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                           {editingMember ? 'Редактировать сотрудника' : 'Добавить сотрудника'}

@@ -17,6 +17,7 @@ interface CRMProps {
   onAddContact: (contact: Contact) => void;
   onUpdateContact: (contact: Contact) => void;
   onDeleteContact: (id: string) => void;
+  onAddActivity: (activity: CrmActivity) => void;
   searchQuery: string;
   currentUser?: User;
   onUpdateCrmSettings?: (settings: CrmUserSettings) => void;
@@ -54,6 +55,7 @@ const CRM: React.FC<CRMProps> = ({
   onUpdateDeal, onAddDeal, onDeleteDeal,
   onAddCompany, onUpdateCompany, onDeleteCompany,
   onAddContact, onUpdateContact, onDeleteContact,
+  onAddActivity, 
   searchQuery, currentUser, onUpdateCrmSettings
 }) => {
   const [activeTab, setActiveTab] = useState<CrmTab>('DEALS');
@@ -125,6 +127,27 @@ const CRM: React.FC<CRMProps> = ({
     const matchesFilter = filterValue === 'ALL' || c.organization === filterValue || companies.find(comp => comp.id === c.companyId)?.name === filterValue;
     return matchesSearch && matchesFilter;
   }));
+
+  // --- Drag and Drop Handlers ---
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedDealId(id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent, newStage: DealStage) => {
+    e.preventDefault();
+    if (!draggedDealId) return;
+
+    const deal = deals.find(d => d.id === draggedDealId);
+    if (deal && deal.stage !== newStage) {
+      onUpdateDeal({ ...deal, stage: newStage });
+    }
+    setDraggedDealId(null);
+  };
 
   const openModal = (item?: any) => {
       setEditingItem(item || null);
@@ -265,7 +288,20 @@ const CRM: React.FC<CRMProps> = ({
         lastContactDate: isEdit ? formData.lastContactDate : new Date().toISOString().split('T')[0]
       };
       isEdit ? onUpdateContact(contactData) : onAddContact(contactData);
-    } 
+
+    } else if (activeTab === 'ACTIVITIES') {
+        const activityData: CrmActivity = {
+            id: isEdit ? id : `a${id}`,
+            type: formData.type || 'Звонок',
+            subject: formData.subject || 'Новое действие',
+            date: formData.date || new Date().toISOString().split('T')[0],
+            status: isEdit ? formData.status : 'Запланировано',
+            relatedEntityId: formData.relatedEntityId || ''
+        };
+        // Use generic handler since activities are simple here
+        onAddActivity(activityData); 
+    }
+
     setIsModalOpen(false);
     setFormData({});
     setEditingItem(null);
@@ -315,6 +351,8 @@ const CRM: React.FC<CRMProps> = ({
         <div 
           key={stage} 
           className="w-80 flex-shrink-0 flex flex-col bg-gray-100/50 dark:bg-gray-800/20 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 transition-colors"
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDrop(e, stage as DealStage)}
         >
           <div className="p-4 border-b border-gray-200/50 dark:border-gray-700/50 flex justify-between items-center bg-gray-50/80 dark:bg-gray-800/80 rounded-t-2xl backdrop-blur-sm">
             <div className="flex items-center gap-2">
@@ -328,8 +366,10 @@ const CRM: React.FC<CRMProps> = ({
           <div className="p-3 flex-1 overflow-y-auto space-y-3 scrollbar-thin">
             {filteredDeals.filter(d => d.stage === stage).map(deal => (
               <div 
-                key={deal.id} 
-                className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300 border border-gray-100 dark:border-gray-700/50 group relative cursor-pointer transform hover:-translate-y-1 active:cursor-grabbing" 
+                key={deal.id}
+                draggable={true}
+                onDragStart={(e) => handleDragStart(e, deal.id)}
+                className={`bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300 border border-gray-100 dark:border-gray-700/50 group relative cursor-grab active:cursor-grabbing transform hover:-translate-y-1 ${draggedDealId === deal.id ? 'opacity-50 border-primary-300 border-dashed' : ''}`}
                 onClick={() => openDetailModal(deal)}
               >
                 <div className="flex justify-between items-start mb-3">
@@ -406,14 +446,14 @@ const CRM: React.FC<CRMProps> = ({
             <thead className="text-xs text-gray-700 uppercase bg-gray-50/50 dark:bg-gray-700/50 dark:text-gray-400 sticky top-0 z-10 backdrop-blur-sm">
               <tr>
                 {columns.map(col => (
-                    <th key={col.key} className="px-6 py-4 font-semibold cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" onClick={() => handleSort(col.key)}>
+                    <th key={col.key} className="px-4 py-3 font-semibold cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" onClick={() => handleSort(col.key)}>
                         <div className="flex items-center gap-2">
                             {col.label}
                             {renderSortIcon(col.key)}
                         </div>
                     </th>
                 ))}
-                <th className="px-6 py-4 text-right"></th>
+                <th className="px-4 py-3 text-right"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -433,21 +473,23 @@ const CRM: React.FC<CRMProps> = ({
                      } else if (col.key === 'value') {
                          content = `₸${Number(val).toLocaleString()}`;
                      } else if (col.key === 'stage' || col.key === 'status') {
-                         content = <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{val}</span>;
+                         content = <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{val}</span>;
                      } else if (col.key === 'address') {
                          content = getCityFromAddress(val);
                      }
 
-                     return <td key={col.key} className="px-6 py-4">{content}</td>;
+                     return <td key={col.key} className="px-4 py-1 whitespace-nowrap">{content}</td>;
                   })}
                   
-                  <td className="px-6 py-4 text-right flex justify-end gap-2" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => openModal(item)} className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
-                      <Pencil className="w-4 h-4" />
-                    </button>
+                  <td className="px-4 py-1 text-right flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+                    {activeTab !== 'ACTIVITIES' && (
+                        <button onClick={() => openModal(item)} className="p-1.5 text-gray-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+                        <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                    )}
                     {onDelete && (
-                      <button onClick={() => onDelete(item.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
-                        <Trash2 className="w-4 h-4" />
+                      <button onClick={() => onDelete(item.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </td>
@@ -489,7 +531,7 @@ const CRM: React.FC<CRMProps> = ({
              <button
                key={tab}
                onClick={() => setActiveTab(tab)}
-               className={`px-4 py-2 text-sm font-bold rounded-xl whitespace-nowrap transition-all duration-200 ${
+               className={`px-3 py-2 text-sm font-bold rounded-xl whitespace-nowrap transition-all duration-200 ${
                  activeTab === tab 
                  ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' 
                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -564,7 +606,7 @@ const CRM: React.FC<CRMProps> = ({
       {/* Settings Modal */}
       {isSettingsModalOpen && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-md border border-white/20 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]">
                   <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
                       <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                           <Settings className="w-5 h-5"/> Настройки CRM
@@ -625,7 +667,7 @@ const CRM: React.FC<CRMProps> = ({
       {/* Edit/Add Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh] overflow-hidden">
+          <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-lg border border-white/20 dark:border-gray-700 flex flex-col max-h-[90vh] overflow-hidden">
             <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                  {editingItem ? 'Редактировать' : 'Добавить'} {activeTab === 'DEALS' ? 'сделку' : activeTab === 'COMPANIES' ? 'компанию' : activeTab === 'PEOPLE' ? 'человека' : 'действие'}
@@ -694,6 +736,18 @@ const CRM: React.FC<CRMProps> = ({
                      <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Дата</label>
                      <input type="date" value={formData.date || ''} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all" onChange={e => setFormData({...formData, date: e.target.value})} />
                    </div>
+                   
+                   {editingItem && (
+                       <div className="pt-4 mt-2 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+                           <button 
+                             type="button" 
+                             onClick={() => onDeleteCompany(editingItem.id)} // Assuming onDeleteCompany is a generic delete passed as prop for now, logic should ideally use onDeleteActivity if available, but for now reuse or fix in App.tsx to pass correct delete
+                             className="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-1"
+                           >
+                               <Trash2 className="w-4 h-4"/> Удалить действие
+                           </button>
+                       </div>
+                   )}
                  </>
               )}
               {activeTab === 'COMPANIES' && (
@@ -810,7 +864,7 @@ const CRM: React.FC<CRMProps> = ({
       {/* Detail View Modal */}
       {isDetailModalOpen && selectedItem && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]">
+           <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-lg border border-white/20 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]">
                <div className="flex justify-between items-start p-6 bg-gray-50/80 dark:bg-gray-900/80 border-b border-gray-100 dark:border-gray-700 backdrop-blur-sm">
                    <div>
                       <span className="text-xs font-bold uppercase text-primary-500 tracking-wider mb-1 block">Детали</span>

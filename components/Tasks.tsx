@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Task, TaskStatus, User, TeamMember, Project } from '../types';
-import { Clock, User as UserIcon, Flag, Plus, Trash2, ChevronDown, ChevronRight, Layers, X, Calendar, FolderOpen, ArrowLeft, Pencil, CheckCircle2, Eye, Lock, Globe, Settings2, Users } from 'lucide-react';
+import { Clock, User as UserIcon, Flag, Plus, Trash2, ChevronDown, ChevronRight, Layers, X, Calendar, FolderOpen, ArrowLeft, Pencil, CheckCircle2, Eye, Lock, Globe, Settings2, Users, Check, ArrowUpDown } from 'lucide-react';
 
 interface TasksProps {
   tasks: Task[];
@@ -20,6 +20,20 @@ interface TasksProps {
 type MainTab = 'PROJECTS' | 'TASKS';
 type TaskFilterTab = 'ALL' | 'STATUS' | 'MINE';
 type ViewMode = 'KANBAN' | 'LIST';
+type SortCriteria = 'NAME' | 'COUNT' | 'ACTIVITY';
+
+const PROJECT_COLORS = [
+    { id: 'blue', label: 'Синий', class: 'bg-gradient-to-br from-blue-500 to-blue-600' },
+    { id: 'emerald', label: 'Изумруд', class: 'bg-gradient-to-br from-emerald-500 to-emerald-600' },
+    { id: 'violet', label: 'Фиолетовый', class: 'bg-gradient-to-br from-violet-500 to-violet-600' },
+    { id: 'orange', label: 'Оранжевый', class: 'bg-gradient-to-br from-orange-500 to-orange-600' },
+    { id: 'red', label: 'Красный', class: 'bg-gradient-to-br from-red-500 to-red-600' },
+    { id: 'pink', label: 'Розовый', class: 'bg-gradient-to-br from-pink-500 to-pink-600' },
+    { id: 'cyan', label: 'Бирюзовый', class: 'bg-gradient-to-br from-cyan-500 to-cyan-600' },
+    { id: 'gold', label: 'Золотой', class: 'bg-gradient-to-br from-yellow-500 to-yellow-600' },
+    { id: 'teal', label: 'Морской', class: 'bg-gradient-to-br from-teal-500 to-teal-600' },
+    { id: 'gray', label: 'Серый', class: 'bg-gradient-to-br from-gray-600 to-gray-700' },
+];
 
 // --- Custom Status Dropdown Component ---
 const StatusSelect = ({ currentStatus, onChange }: { currentStatus: TaskStatus, onChange: (s: TaskStatus) => void }) => {
@@ -90,6 +104,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
   const [taskFilterTab, setTaskFilterTab] = useState<TaskFilterTab>('ALL');
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('LIST');
+  const [sortCriteria, setSortCriteria] = useState<SortCriteria>('NAME');
   
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -103,7 +118,8 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
   const [projectForm, setProjectForm] = useState<Partial<Project>>({
       name: '',
       access: 'PUBLIC',
-      allowedUsers: []
+      allowedUsers: [],
+      color: 'blue'
   });
   
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
@@ -143,6 +159,11 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
       case 'Низкий': return 'text-green-600 bg-green-100 border border-green-200 dark:bg-green-900/40 dark:text-green-200 dark:border-green-900/50';
       default: return 'text-gray-500 border border-gray-200';
     }
+  };
+
+  const getProjectGradient = (colorId?: string) => {
+      const color = PROJECT_COLORS.find(c => c.id === colorId);
+      return color ? color.class : PROJECT_COLORS[0].class;
   };
 
   const toggleExpand = (taskId: string) => {
@@ -212,7 +233,8 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
           id: projectForm.id || `p${Date.now()}`,
           name: projectForm.name,
           access: projectForm.access || 'PUBLIC',
-          allowedUsers: projectForm.allowedUsers || []
+          allowedUsers: projectForm.allowedUsers || [],
+          color: projectForm.color || 'blue'
       };
 
       if (projectForm.id) {
@@ -221,7 +243,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
           onAddProject(projectData);
       }
       
-      setProjectForm({ name: '', access: 'PUBLIC', allowedUsers: [] });
+      setProjectForm({ name: '', access: 'PUBLIC', allowedUsers: [], color: 'blue' });
       setIsProjectModalOpen(false);
       setIsProjectSettingsOpen(false);
   };
@@ -237,62 +259,86 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
       });
   };
 
+  // --- Sorting Logic ---
+  const getProjectStats = (projectName: string) => {
+      const projectTasks = tasks.filter(t => t.project === projectName);
+      return {
+          count: projectTasks.length,
+          // Find latest due date as activity proxy
+          lastActivity: projectTasks.length > 0 
+              ? projectTasks.reduce((latest, t) => t.dueDate > latest ? t.dueDate : latest, '0000-00-00')
+              : '0000-00-00'
+      };
+  };
+
+  const sortedProjects = [...accessibleProjects].sort((a, b) => {
+      if (sortCriteria === 'NAME') {
+          return a.name.localeCompare(b.name);
+      } else if (sortCriteria === 'COUNT') {
+          return getProjectStats(b.name).count - getProjectStats(a.name).count;
+      } else if (sortCriteria === 'ACTIVITY') {
+          return getProjectStats(b.name).lastActivity.localeCompare(getProjectStats(a.name).lastActivity);
+      }
+      return 0;
+  });
+
   // --- Renderers ---
 
   const renderProjectGrid = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      {accessibleProjects.map((project, idx) => {
+    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+      {sortedProjects.map((project) => {
         const projectTasks = tasks.filter(t => t.project === project.name);
         const completed = projectTasks.filter(t => t.status === TaskStatus.DONE).length;
         const total = projectTasks.length;
         const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
+        const gradientClass = getProjectGradient(project.color);
         
         return (
           <div 
             key={project.id}
             onClick={() => setActiveProject(project.name)}
-            className="group relative bg-white dark:bg-gray-800 rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.02)] border border-gray-200 dark:border-gray-700 hover:shadow-xl hover:border-primary-500/30 transition-all duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1 flex flex-col h-auto p-5"
+            className={`group relative ${gradientClass} rounded-2xl shadow-sm hover:shadow-lg border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1 flex flex-col p-3`}
           >
-            <div className="flex justify-between items-start mb-3">
+            {/* Glass effect texture */}
+            <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            
+            <div className="relative z-10 flex justify-between items-start mb-2">
                <div className="flex items-center gap-2">
-                   <div className="p-2 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 rounded-xl text-primary-700 dark:text-primary-300">
-                       {project.access === 'PRIVATE' ? <Lock className="w-5 h-5"/> : <FolderOpen className="w-5 h-5"/>}
+                   <div className={`p-1.5 bg-white/20 text-white backdrop-blur-md rounded-lg shadow-sm border border-white/10`}>
+                       {project.access === 'PRIVATE' ? <Lock className="w-3.5 h-3.5"/> : <FolderOpen className="w-3.5 h-3.5"/>}
                    </div>
                </div>
-               {currentUser?.role === 'ADMIN' && (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); openProjectSettings(project); }}
-                    className="p-1.5 text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                  >
-                      <Settings2 className="w-4 h-4" />
-                  </button>
-               )}
+               <div className="flex gap-1">
+                   <button 
+                        onClick={(e) => { e.stopPropagation(); openModal(undefined, undefined, project.name); }}
+                        className="p-1 text-white hover:bg-white/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100 backdrop-blur-sm"
+                        title="Добавить задачу"
+                   >
+                        <Plus className="w-3.5 h-3.5" />
+                   </button>
+                   {currentUser?.role === 'ADMIN' && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); openProjectSettings(project); }}
+                        className="p-1 text-white/60 hover:text-white hover:bg-white/20 rounded-lg transition-colors opacity-0 group-hover:opacity-100 backdrop-blur-sm"
+                      >
+                          <Settings2 className="w-3.5 h-3.5" />
+                      </button>
+                   )}
+               </div>
             </div>
             
-            <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1 truncate">{project.name}</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex items-center gap-2">
-                {project.access === 'PUBLIC' ? <span className="flex items-center gap-1"><Globe className="w-3 h-3"/> Публичный</span> : <span className="flex items-center gap-1"><Lock className="w-3 h-3"/> Приватный</span>}
-                <span>•</span>
-                <span>{total} задач</span>
+            <h3 className="relative z-10 text-lg font-extrabold text-white mb-0.5 truncate tracking-tight leading-tight">{project.name}</h3>
+            <p className="relative z-10 text-[10px] text-white/70 mb-3 flex items-center gap-1 font-medium">
+                Кол-во задач: {total}
             </p>
             
-            <div className="mt-auto">
-               <div className="flex justify-between text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1.5">
-                  <span>Прогресс</span>
+            <div className="relative z-10 mt-auto">
+               <div className="flex justify-between text-[9px] font-bold text-white/80 mb-1 uppercase tracking-wider">
                   <span>{progress}%</span>
                </div>
-               <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden">
-                  <div className={`h-1.5 rounded-full transition-all duration-1000 ease-out bg-primary-500`} style={{ width: `${progress}%` }}></div>
+               <div className="w-full bg-black/20 rounded-full h-1 overflow-hidden backdrop-blur-sm">
+                  <div className="h-1 bg-white rounded-full transition-all duration-1000 ease-out" style={{ width: `${progress}%` }}></div>
                </div>
-            </div>
-             
-            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700/50 flex justify-end">
-                <button 
-                    onClick={(e) => { e.stopPropagation(); openModal(undefined, undefined, project.name); }}
-                    className="text-[10px] font-bold text-primary-600 hover:text-primary-700 flex items-center gap-1 bg-primary-50 dark:bg-primary-900/20 px-2.5 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                    <Plus className="w-3 h-3" /> Новая задача
-                </button>
             </div>
           </div>
         );
@@ -332,6 +378,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
           <tr>
             <th className="px-6 py-4 w-8"></th>
             <th className="px-6 py-4">Задача</th>
+            <th className="px-6 py-4">Проект</th>
             <th className="px-6 py-4">Статус</th>
             <th className="px-6 py-4">Срок</th>
             <th className="px-6 py-4">Приоритет</th>
@@ -354,6 +401,12 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                     {task.title}
                     <div className="text-xs font-normal text-gray-400 truncate max-w-xs mt-0.5">{task.description}</div>
                   </td>
+                  <td className="px-6 py-4">
+                     <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                        <FolderOpen className="w-3.5 h-3.5 text-gray-400" />
+                        <span className="font-medium">{task.project}</span>
+                     </div>
+                  </td>
                   <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                     <StatusSelect 
                       currentStatus={task.status}
@@ -375,7 +428,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                       </div>
                   </td>
                   <td className="px-6 py-4 text-right flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => openModal(task, undefined, task.project)} className="p-2 text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-all" title="Добавить подзадачу"><Layers className="w-4 h-4"/></button>
+                    <button onClick={() => openModal(undefined, task.id, task.project)} className="p-2 text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-all" title="Добавить подзадачу"><Layers className="w-4 h-4"/></button>
                     <button onClick={() => openModal(task)} className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-all"><Pencil className="w-4 h-4"/></button>
                     <button onClick={() => onDeleteTask(task.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"><Trash2 className="w-4 h-4"/></button>
                   </td>
@@ -388,6 +441,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                        <ArrowLeft className="w-3 h-3 rotate-180 text-gray-400" />
                        {st.title}
                      </td>
+                     <td className="px-6 py-3"></td> {/* Empty Project column for subtasks */}
                      <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
                         <StatusSelect 
                           currentStatus={st.status}
@@ -509,11 +563,15 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
       (window as any).triggerTaskEdit = openModal;
   }
 
+  // Button Style Helpers
+  const activeBtnStyle = "bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all hover:-translate-y-0.5";
+  const inactiveBtnStyle = "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-white font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5";
+
   return (
     <div className="h-[calc(100vh-80px)] md:h-[calc(100vh-140px)] flex flex-col">
       <div className="mb-6">
          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 w-full md:w-auto">
                {activeProject ? (
                  <button 
                    onClick={() => setActiveProject(null)}
@@ -523,32 +581,56 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                  </button>
                ) : null}
                
-               <div>
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 tracking-tight">
-                     {activeProject ? activeProject : (mainTab === 'PROJECTS' ? 'Проекты и задачи' : 'Список задач')}
-                  </h2>
+               <div className="flex items-center gap-3 w-full justify-between md:justify-start">
+                  {/* Left Side: Title or Tabs */}
+                  {activeProject ? (
+                      <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 tracking-tight">
+                        {activeProject}
+                      </h2>
+                  ) : (
+                      <div className="flex bg-white dark:bg-gray-800 p-1.5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <button onClick={() => setMainTab('PROJECTS')} className={`px-4 py-2 text-sm rounded-xl transition-all font-medium ${mainTab === 'PROJECTS' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Проекты</button>
+                        <button onClick={() => setMainTab('TASKS')} className={`px-4 py-2 text-sm rounded-xl transition-all font-medium ${mainTab === 'TASKS' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Задачи</button>
+                      </div>
+                  )}
+                  
+                  {/* Sorting Dropdown */}
+                  {!activeProject && mainTab === 'PROJECTS' && (
+                      <div className="relative group">
+                          <button className="flex items-center gap-1.5 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 shadow-sm transition-all h-[42px]">
+                              <ArrowUpDown className="w-3.5 h-3.5" />
+                              <span className="hidden md:inline">
+                                  {sortCriteria === 'NAME' ? 'По имени' : sortCriteria === 'COUNT' ? 'По задачам' : 'По активности'}
+                              </span>
+                          </button>
+                          <div className="absolute left-0 top-full mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-20 hidden group-hover:block p-1 animate-fade-in">
+                              <button onClick={() => setSortCriteria('NAME')} className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg flex items-center justify-between ${sortCriteria === 'NAME' ? 'text-primary-600' : 'text-gray-600 dark:text-gray-400'}`}>
+                                  По имени {sortCriteria === 'NAME' && <Check className="w-3 h-3"/>}
+                              </button>
+                              <button onClick={() => setSortCriteria('COUNT')} className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg flex items-center justify-between ${sortCriteria === 'COUNT' ? 'text-primary-600' : 'text-gray-600 dark:text-gray-400'}`}>
+                                  По кол-ву задач {sortCriteria === 'COUNT' && <Check className="w-3 h-3"/>}
+                              </button>
+                              <button onClick={() => setSortCriteria('ACTIVITY')} className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg flex items-center justify-between ${sortCriteria === 'ACTIVITY' ? 'text-primary-600' : 'text-gray-600 dark:text-gray-400'}`}>
+                                  По активности {sortCriteria === 'ACTIVITY' && <Check className="w-3 h-3"/>}
+                              </button>
+                          </div>
+                      </div>
+                  )}
                </div>
             </div>
 
             <div className="flex gap-3 w-full md:w-auto">
-              {!activeProject && (
-                  <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 border border-gray-200 dark:border-gray-700">
-                     <button onClick={() => setMainTab('PROJECTS')} className={`px-4 py-2 text-sm rounded-lg transition-all ${mainTab === 'PROJECTS' ? 'bg-white dark:bg-gray-700 shadow-sm font-bold text-gray-900 dark:text-white' : 'text-gray-500 font-medium hover:text-gray-700'}`}>Проекты</button>
-                     <button onClick={() => setMainTab('TASKS')} className={`px-4 py-2 text-sm rounded-lg transition-all ${mainTab === 'TASKS' ? 'bg-white dark:bg-gray-700 shadow-sm font-bold text-gray-900 dark:text-white' : 'text-gray-500 font-medium hover:text-gray-700'}`}>Задачи</button>
-                  </div>
-              )}
-              
               {!activeProject && mainTab === 'PROJECTS' && (
                  <button 
-                   onClick={() => { setProjectForm({}); setIsProjectModalOpen(true); }}
-                   className="bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all hover:-translate-y-0.5"
+                   onClick={() => { setProjectForm({color: 'blue'}); setIsProjectModalOpen(true); }}
+                   className={activeBtnStyle}
                  >
                    <Plus className="w-4 h-4" /> Проект
                  </button>
               )}
               <button 
                 onClick={() => openModal()}
-                className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-white font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5"
+                className={(mainTab === 'TASKS' || activeProject) ? activeBtnStyle : inactiveBtnStyle}
               >
                 <Plus className="w-4 h-4" /> Задача
               </button>
@@ -557,10 +639,10 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
 
          {/* Subtabs for Tasks */}
          {(mainTab === 'TASKS' || activeProject) && (
-            <div className="flex gap-6 border-b border-gray-200 dark:border-gray-700 mb-4 px-1">
-                <button onClick={() => {setTaskFilterTab('ALL'); setViewMode('LIST')}} className={`pb-3 text-sm font-bold border-b-2 transition-all ${taskFilterTab === 'ALL' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Все задачи</button>
-                <button onClick={() => {setTaskFilterTab('STATUS'); setViewMode('KANBAN')}} className={`pb-3 text-sm font-bold border-b-2 transition-all ${taskFilterTab === 'STATUS' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>По статусу</button>
-                <button onClick={() => {setTaskFilterTab('MINE'); setViewMode('LIST')}} className={`pb-3 text-sm font-bold border-b-2 transition-all ${taskFilterTab === 'MINE' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Назначено мне</button>
+            <div className="flex gap-6 border-b border-gray-200 dark:border-gray-700 mb-4 px-1 overflow-x-auto no-scrollbar">
+                <button onClick={() => {setTaskFilterTab('ALL'); setViewMode('LIST')}} className={`pb-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${taskFilterTab === 'ALL' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Все задачи</button>
+                <button onClick={() => {setTaskFilterTab('STATUS'); setViewMode('KANBAN')}} className={`pb-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${taskFilterTab === 'STATUS' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>По статусу</button>
+                <button onClick={() => {setTaskFilterTab('MINE'); setViewMode('LIST')}} className={`pb-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${taskFilterTab === 'MINE' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Назначено мне</button>
             </div>
          )}
       </div>
@@ -575,7 +657,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
       {/* New Project Modal */}
       {isProjectModalOpen && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+             <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-sm border border-white/20 dark:border-gray-700 overflow-hidden">
                 <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Новый проект</h3>
                    <button onClick={() => setIsProjectModalOpen(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-400"><X className="w-5 h-5" /></button>
@@ -592,6 +674,23 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                           required
                        />
                    </div>
+                   
+                   <div>
+                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-2">Цвет обложки</label>
+                       <div className="flex flex-wrap gap-2">
+                           {PROJECT_COLORS.map(color => (
+                               <button
+                                  type="button"
+                                  key={color.id}
+                                  onClick={() => setProjectForm({...projectForm, color: color.id})}
+                                  className={`w-8 h-8 rounded-full ${color.class} flex items-center justify-center ring-2 ring-offset-2 dark:ring-offset-gray-800 transition-all ${projectForm.color === color.id ? 'ring-gray-400 dark:ring-white scale-110' : 'ring-transparent opacity-70 hover:opacity-100 hover:scale-105'}`}
+                               >
+                                   {projectForm.color === color.id && <Check className="w-4 h-4 text-white" />}
+                               </button>
+                           ))}
+                       </div>
+                   </div>
+
                    <button type="submit" className="w-full bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 font-bold py-3 rounded-xl shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all">Создать</button>
                 </form>
              </div>
@@ -601,7 +700,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
       {/* Project Settings Modal */}
       {isProjectSettingsOpen && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+             <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-md border border-white/20 dark:border-gray-700 overflow-hidden">
                 <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
                    <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                        <Settings2 className="w-5 h-5" /> Настройки проекта
@@ -617,6 +716,23 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                           className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none text-gray-900 dark:text-white transition-all"
                        />
                    </div>
+
+                   <div>
+                       <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-2">Цвет обложки</label>
+                       <div className="flex flex-wrap gap-2">
+                           {PROJECT_COLORS.map(color => (
+                               <button
+                                  type="button"
+                                  key={color.id}
+                                  onClick={() => setProjectForm({...projectForm, color: color.id})}
+                                  className={`w-8 h-8 rounded-full ${color.class} flex items-center justify-center ring-2 ring-offset-2 dark:ring-offset-gray-800 transition-all ${projectForm.color === color.id ? 'ring-gray-400 dark:ring-white scale-110' : 'ring-transparent opacity-70 hover:opacity-100 hover:scale-105'}`}
+                               >
+                                   {projectForm.color === color.id && <Check className="w-4 h-4 text-white" />}
+                               </button>
+                           ))}
+                       </div>
+                   </div>
+
                    <div>
                        <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-2">Доступ</label>
                        <div className="grid grid-cols-2 gap-3">
@@ -670,7 +786,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
       {/* Task Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-md border border-white/20 dark:border-gray-700 overflow-hidden">
             <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                    {editingTask ? 'Редактирование задачи' : (newTaskData.parentId ? 'Новая подзадача' : 'Новая задача')}
