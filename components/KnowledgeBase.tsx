@@ -36,8 +36,8 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
 
   const filteredArticles = articles.filter(a => 
     a.type === activeTab &&
-    (a.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    a.content.toLowerCase().includes(searchQuery.toLowerCase()))
+    ((a.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (a.content || '').toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleAdd = (e: React.FormEvent) => {

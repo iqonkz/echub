@@ -139,9 +139,9 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
 
   // --- Filtering Logic ---
   const filteredTasks = tasks.filter(t => {
-    const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          t.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          t.assignee.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (t.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (t.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (t.assignee || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     let matchesContext = true;
 
@@ -426,9 +426,9 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                   <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[10px] font-bold text-gray-600 dark:text-gray-300">
-                              {task.assignee.charAt(0)}
+                              {(task.assignee || '?').charAt(0)}
                           </div>
-                          {task.assignee}
+                          {task.assignee || 'Unknown'}
                       </div>
                   </td>
                   <td className="px-6 py-4 text-right flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
@@ -487,7 +487,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
               <div className="flex justify-between items-center mt-3 pt-2 border-t border-gray-50 dark:border-gray-700/50">
                   <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
                      <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[9px] font-bold">
-                         {task.assignee.charAt(0)}
+                         {(task.assignee || '?').charAt(0)}
                      </div>
                      {task.assignee}
                   </div>
@@ -535,7 +535,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
             <div className="flex items-center justify-between mt-3">
                 <div className="flex -space-x-2">
                     <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700 border-2 border-white dark:border-gray-800 flex items-center justify-center text-[9px] font-bold text-gray-500">
-                        {task.assignee.charAt(0)}
+                        {(task.assignee || '?').charAt(0)}
                     </div>
                 </div>
                 <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md ${new Date(task.dueDate) < new Date() && task.status !== TaskStatus.DONE ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-500'}`}>

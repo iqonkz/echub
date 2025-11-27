@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Deal, DealStage, Company, Contact, CrmActivity, User, CrmUserSettings, CrmColumn } from '../types';
 import { Plus, LayoutGrid, List, Trash2, Building, Filter, Pencil, ArrowUpDown, Phone, Mail, User as UserIcon, Download, Upload, Settings, Eye } from 'lucide-react';
@@ -119,16 +120,16 @@ const CRM: React.FC<CRMProps> = ({
       });
   };
 
-  const filteredDeals = deals.filter(d => d.title.toLowerCase().includes(searchQuery.toLowerCase()) || d.clientName.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredDeals = deals.filter(d => (d.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || (d.clientName || '').toLowerCase().includes(searchQuery.toLowerCase()));
   
   const filteredCompanies = sortData(companies.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || (c.bin && c.bin.includes(searchQuery));
+    const matchesSearch = (c.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (c.bin && c.bin.includes(searchQuery));
     const matchesFilter = filterValue === 'ALL' || c.industry === filterValue;
     return matchesSearch && matchesFilter;
   }));
 
   const filteredContacts = sortData(contacts.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.organization?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (c.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (c.organization || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = filterValue === 'ALL' || c.organization === filterValue || companies.find(comp => comp.id === c.companyId)?.name === filterValue;
     return matchesSearch && matchesFilter;
   }));

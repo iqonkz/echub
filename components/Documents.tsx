@@ -43,10 +43,10 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
 
   // Filter Logic
   const filteredDocs = docs.filter(d => {
-      const matchesSearch = d.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = (d.name || '').toLowerCase().includes(searchQuery.toLowerCase());
       const matchesFilter = activeFilter ? (
           activeFilter === 'Чертежи' ? d.type === 'DWG' :
-          activeFilter === 'Договоры' ? (d.type === 'PDF' && d.name.toLowerCase().includes('договор')) : // heuristic
+          activeFilter === 'Договоры' ? (d.type === 'PDF' && (d.name || '').toLowerCase().includes('договор')) : // heuristic
           activeFilter === 'Бухгалтерия' ? d.type === 'XLSX' :
           true // HR not mapped strictly in this example
       ) : true;
