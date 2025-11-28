@@ -36,7 +36,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
       )}
       <div className="relative group">
         {icon && (
-          <div className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-primary-500 transition-colors pointer-events-none">
+          <div className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-primary-500 transition-colors pointer-events-none z-10">
             {icon}
           </div>
         )}
