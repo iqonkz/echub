@@ -18,11 +18,11 @@ export enum TaskStatus {
 }
 
 export enum DealStage {
-  NEW = 'Новая заявка',
+  NEW = 'Заявка',
   ESTIMATION = 'Оценка',
   NEGOTIATION = 'Переговоры',
   CONTRACT = 'Договор',
-  WON = 'Сделка успешна',
+  WON = 'Успешно',
 }
 
 export interface CrmColumn {
