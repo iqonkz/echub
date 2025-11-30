@@ -289,7 +289,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
   // --- Renderers ---
 
   const renderProjectGrid = () => (
-    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 pb-24 md:pb-0 p-2">
       {sortedProjects.map((project) => {
         const projectTasks = tasks.filter(t => t.project === project.name);
         const completed = projectTasks.filter(t => t.status === TaskStatus.DONE).length;
@@ -351,7 +351,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
   );
 
   const renderKanban = () => (
-    <div className="flex gap-6 overflow-x-auto pb-6 h-full px-1">
+    <div className="flex gap-6 overflow-x-auto pb-24 md:pb-6 h-full px-1">
         {statusColumns.map((status) => (
           <div 
             key={status} 
@@ -467,31 +467,35 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
       </table>
       </div>
 
-      {/* Mobile List View - Custom Layout */}
-      <div className="md:hidden flex-1 overflow-auto p-4 space-y-3">
+      {/* Mobile List View - Compact Layout */}
+      <div className="md:hidden flex-1 overflow-auto p-4 space-y-3 pb-32">
          {filteredTasks.filter(t => !t.parentId).map(task => (
-           <div key={task.id} onClick={() => openModal(task)} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm active:scale-95 transition-transform">
-              <div className="flex justify-between items-start mb-2">
-                 <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white line-clamp-2 text-sm">{task.title}</h4>
-                    <p className="text-xs text-gray-500 mt-0.5">{task.project}</p>
+           <div key={task.id} onClick={() => openModal(task)} className="bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm active:scale-95 transition-transform">
+              <div className="flex justify-between items-start mb-1.5">
+                 <div className="flex-1 mr-2">
+                    <h4 className="font-bold text-gray-900 dark:text-white line-clamp-1 text-sm">{task.title}</h4>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                         <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${getPriorityColor(task.priority)}`}>{task.priority}</span>
+                         <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[120px]">{task.project}</p>
+                    </div>
                  </div>
-                 {/* Replaced Actions with Due Date for Mobile */}
-                 <div className="flex flex-col items-end">
-                     <span className={`text-[10px] px-2 py-1 rounded-md font-bold uppercase mb-1 ${getPriorityColor(task.priority)}`}>{task.priority}</span>
-                     <span className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                        <Calendar className="w-3 h-3"/> {new Date(task.dueDate).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
-                     </span>
+                 <div className="flex flex-col items-end flex-shrink-0">
+                      <span className="text-[10px] font-medium text-gray-400 mb-1">
+                        {new Date(task.dueDate).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
+                      </span>
                  </div>
               </div>
-              <div className="flex justify-between items-center mt-3 pt-2 border-t border-gray-50 dark:border-gray-700/50">
-                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
-                     <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[9px] font-bold">
+              
+              <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-50 dark:border-gray-700/50">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
+                     <div className="w-4 h-4 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-[8px] font-bold">
                          {(task.assignee || '?').charAt(0)}
                      </div>
-                     {task.assignee}
+                     <span className="text-[10px] truncate max-w-[80px]">{task.assignee}</span>
                   </div>
-                  <StatusSelect currentStatus={task.status} onChange={(s) => onUpdateTaskStatus(task.id, s)} />
+                  <div onClick={(e) => e.stopPropagation()} className="scale-90 origin-right">
+                     <StatusSelect currentStatus={task.status} onChange={(s) => onUpdateTaskStatus(task.id, s)} />
+                  </div>
               </div>
            </div>
          ))}
@@ -568,13 +572,14 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
   }
 
   // Button Style Helpers
-  const activeBtnStyle = "bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all hover:-translate-y-0.5";
-  const inactiveBtnStyle = "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-white font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5";
+  const activeBtnStyle = "bg-gradient-to-r from-primary-400 to-primary-500 hover:from-primary-500 hover:to-primary-600 text-gray-900 font-bold p-2.5 md:px-5 md:py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 transition-all hover:-translate-y-0.5 flex-shrink-0";
+  const inactiveBtnStyle = "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-white font-bold p-2.5 md:px-5 md:py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 flex-shrink-0";
 
   return (
     <div className="h-[calc(100vh-80px)] md:h-[calc(100vh-140px)] flex flex-col">
-      <div className="mb-6">
-         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+      <div className="mb-2">
+         {/* Top Header Row */}
+         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-3">
             <div className="flex items-center gap-4 w-full md:w-auto">
                {activeProject ? (
                  <button 
@@ -585,22 +590,62 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                  </button>
                ) : null}
                
-               <div className="flex items-center gap-3 w-full justify-between md:justify-start">
+               <div className="flex items-center gap-2 w-full justify-between md:justify-start">
                   {/* Left Side: Title or Tabs */}
                   {activeProject ? (
-                      <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 tracking-tight">
+                      <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 tracking-tight">
                         {activeProject}
                       </h2>
                   ) : (
-                      <div className="flex bg-white dark:bg-gray-800 p-1.5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                        <button onClick={() => setMainTab('PROJECTS')} className={`px-4 py-2 text-sm rounded-xl transition-all font-medium ${mainTab === 'PROJECTS' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Проекты</button>
-                        <button onClick={() => setMainTab('TASKS')} className={`px-4 py-2 text-sm rounded-xl transition-all font-medium ${mainTab === 'TASKS' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Задачи</button>
+                      // Mobile: Combined Tabs + Sort + Add Button Row
+                      <div className="flex items-center gap-2 w-full md:w-auto">
+                          <div className="flex bg-white dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex-1 md:flex-none">
+                            <button onClick={() => setMainTab('PROJECTS')} className={`flex-1 md:flex-none px-3 py-2 text-xs md:text-sm rounded-lg transition-all font-medium ${mainTab === 'PROJECTS' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Проекты</button>
+                            <button onClick={() => setMainTab('TASKS')} className={`flex-1 md:flex-none px-3 py-2 text-xs md:text-sm rounded-lg transition-all font-medium ${mainTab === 'TASKS' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Задачи</button>
+                          </div>
+
+                           {/* Mobile Sort Dropdown (Projects only) */}
+                           {!activeProject && mainTab === 'PROJECTS' && (
+                                <div className="relative group md:hidden">
+                                    <button className="flex items-center justify-center w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-600 dark:text-gray-300 shadow-sm">
+                                        <ArrowUpDown className="w-4 h-4" />
+                                    </button>
+                                     <div className="absolute right-0 top-full mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-20 hidden group-hover:block p-1 animate-fade-in">
+                                      <button onClick={() => setSortCriteria('NAME')} className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg flex items-center justify-between ${sortCriteria === 'NAME' ? 'text-primary-600' : 'text-gray-600 dark:text-gray-400'}`}>
+                                          Имя {sortCriteria === 'NAME' && <Check className="w-3 h-3"/>}
+                                      </button>
+                                      <button onClick={() => setSortCriteria('COUNT')} className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg flex items-center justify-between ${sortCriteria === 'COUNT' ? 'text-primary-600' : 'text-gray-600 dark:text-gray-400'}`}>
+                                          Кол-во {sortCriteria === 'COUNT' && <Check className="w-3 h-3"/>}
+                                      </button>
+                                  </div>
+                                </div>
+                           )}
+
+                           {/* Mobile Action Buttons */}
+                           <div className="md:hidden">
+                              {!activeProject && mainTab === 'PROJECTS' && (
+                                <button 
+                                  onClick={() => { setProjectForm({color: 'blue'}); setIsProjectModalOpen(true); }}
+                                  className={activeBtnStyle}
+                                >
+                                  <Plus className="w-5 h-5" />
+                                </button>
+                              )}
+                              {(mainTab === 'TASKS' || activeProject) && (
+                                <button 
+                                  onClick={() => openModal()}
+                                  className={activeBtnStyle}
+                                >
+                                  <Plus className="w-5 h-5" />
+                                </button>
+                              )}
+                           </div>
                       </div>
                   )}
                   
-                  {/* Sorting Dropdown */}
+                  {/* Desktop Sorting Dropdown */}
                   {!activeProject && mainTab === 'PROJECTS' && (
-                      <div className="relative group">
+                      <div className="relative group hidden md:block">
                           <button className="flex items-center gap-1.5 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 shadow-sm transition-all h-[42px]">
                               <ArrowUpDown className="w-3.5 h-3.5" />
                               <span className="hidden md:inline">
@@ -623,7 +668,8 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                </div>
             </div>
 
-            <div className="flex gap-3 w-full md:w-auto">
+            {/* Desktop Action Buttons */}
+            <div className="hidden md:flex gap-3">
               {!activeProject && mainTab === 'PROJECTS' && (
                  <button 
                    onClick={() => { setProjectForm({color: 'blue'}); setIsProjectModalOpen(true); }}
@@ -632,12 +678,14 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                    <Plus className="w-4 h-4" /> Проект
                  </button>
               )}
-              <button 
-                onClick={() => openModal()}
-                className={(mainTab === 'TASKS' || activeProject) ? activeBtnStyle : inactiveBtnStyle}
-              >
-                <Plus className="w-4 h-4" /> Задача
-              </button>
+              {(mainTab === 'TASKS' || activeProject) && (
+                <button 
+                  onClick={() => openModal()}
+                  className={activeBtnStyle}
+                >
+                  <Plus className="w-4 h-4" /> Задача
+                </button>
+              )}
             </div>
          </div>
 

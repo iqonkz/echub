@@ -172,7 +172,7 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
 
   const renderCell = (cell: any, isWeekView = false) => {
     if (cell.type === 'blank') {
-        return <div key={cell.key} className="bg-gray-50/30 dark:bg-gray-900/20 min-h-[120px] border border-gray-100 dark:border-gray-800/50"></div>;
+        return <div key={cell.key} className="bg-gray-50/30 dark:bg-gray-900/20 min-h-[80px] md:min-h-[120px] border border-gray-100 dark:border-gray-800/50"></div>;
     }
 
     const date: Date = cell.date;
@@ -184,19 +184,19 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
     const isToday = todayStr === dateStr;
 
     return (
-      <div key={cell.key} className={`bg-white/50 dark:bg-gray-800/50 p-2 border border-gray-100 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-700 transition-all group relative backdrop-blur-sm ${isWeekView ? 'min-h-[400px]' : 'min-h-[120px]'}`}>
-        <div className="flex justify-between items-start mb-2">
-           <span className={`text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full transition-colors ${
+      <div key={cell.key} className={`bg-white/50 dark:bg-gray-800/50 p-1 md:p-2 border border-gray-100 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-700 transition-all group relative backdrop-blur-sm ${isWeekView ? 'min-h-[80px] md:min-h-[300px]' : 'min-h-[80px] md:min-h-[120px]'}`}>
+        <div className="flex justify-between items-start mb-1 md:mb-2">
+           <span className={`text-xs md:text-sm font-semibold w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full transition-colors ${
              isToday ? 'bg-primary-500 text-gray-900 shadow-md' : 'text-gray-700 dark:text-gray-300 group-hover:bg-gray-100 dark:group-hover:bg-gray-600'
            }`}>{date.getDate()}</span>
         </div>
         
-        <div className="space-y-1.5">
+        <div className="space-y-1">
            {dayTasks.map(task => (
              <div 
                 key={task.id} 
                 onClick={(e) => { e.stopPropagation(); onEditTask && onEditTask(task); }}
-                className={`text-[10px] px-2 py-1.5 rounded-lg border truncate cursor-pointer font-medium shadow-sm transition-transform hover:-translate-y-0.5 ${
+                className={`text-[8px] md:text-[10px] px-1 md:px-2 py-1 rounded md:rounded-lg border truncate cursor-pointer font-medium shadow-sm transition-transform hover:-translate-y-0.5 ${
                 task.priority === 'Высокий' 
                 ? 'bg-red-50 border-red-100 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200' 
                 : 'bg-white border-gray-200 text-gray-700 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200'
@@ -207,12 +207,12 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
         </div>
 
         {/* Hover Add Button / Popover */}
-        <div className="absolute top-2 right-2">
+        <div className="absolute top-1 right-1 md:top-2 md:right-2">
             <button 
               onClick={() => setPopoverDate(popoverDate === dateStr ? null : dateStr)}
-              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-400 hover:text-primary-500 opacity-0 group-hover:opacity-100 transition-all"
+              className="p-1 md:p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-400 hover:text-primary-500 opacity-0 group-hover:opacity-100 transition-all"
             >
-               <Plus className="w-4 h-4" />
+               <Plus className="w-3 h-3 md:w-4 md:h-4" />
             </button>
             
             {popoverDate === dateStr && (
@@ -233,14 +233,14 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
   return (
     <div className="h-[calc(100vh-80px)] md:h-[calc(100vh-140px)] flex flex-col">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 flex-shrink-0">
-         <div className="flex items-center gap-3">
+         <div className="flex items-center gap-3 w-full justify-between md:justify-start">
              <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-4">
                 <div className="flex items-center bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-1">
                   <button onClick={() => changeDate(-1)} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500"><ChevronLeft className="w-5 h-5" /></button>
-                  <span className="px-4 font-bold min-w-[160px] text-center text-sm md:text-base text-gray-900 dark:text-white">
+                  <span className="px-4 font-bold min-w-[120px] md:min-w-[160px] text-center text-sm md:text-base text-gray-900 dark:text-white truncate">
                       {viewMode === 'MONTH' 
                         ? `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}` 
-                        : `Неделя ${currentDate.getDate()} ${monthNames[currentDate.getMonth()]}`
+                        : `Нед. ${currentDate.getDate()} ${monthNames[currentDate.getMonth()]}`
                       }
                   </span>
                   <button onClick={() => changeDate(1)} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500"><ChevronRight className="w-5 h-5" /></button>
@@ -258,30 +258,30 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
              </div>
          </div>
 
-         <div className="flex gap-1 bg-white dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+         <div className="flex gap-1 bg-white dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm w-full md:w-auto">
             <button 
                 onClick={() => setViewMode('WEEK')}
-                className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'WEEK' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'WEEK' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
             >
                 Неделя
             </button>
             <button 
                 onClick={() => setViewMode('MONTH')}
-                className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'MONTH' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'MONTH' ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
             >
                 Месяц
             </button>
          </div>
       </div>
 
-      <div className="flex flex-col bg-gray-200 dark:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none flex-1">
+      <div className="flex flex-col bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none flex-1">
          <div 
-            className="grid gap-px flex-1 overflow-y-auto min-h-0 bg-gray-200 dark:bg-gray-700"
+            className="grid flex-1 overflow-y-auto min-h-0 bg-white dark:bg-gray-800 pb-24 md:pb-0"
             style={{ gridTemplateColumns: `repeat(${gridColumnsCount}, minmax(0, 1fr))` }}
          >
              {/* Sticky Headers */}
              {visibleHeaderIndices.map(d => (
-                 <div key={`header-${d}`} className="sticky top-0 z-10 bg-white dark:bg-gray-800 py-3 text-center text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider shadow-sm">
+                 <div key={`header-${d}`} className="sticky top-0 z-10 bg-white dark:bg-gray-800 py-3 text-center text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider shadow-sm border-b border-gray-100 dark:border-gray-700">
                      {dayNamesShort[d]}
                  </div>
              ))}

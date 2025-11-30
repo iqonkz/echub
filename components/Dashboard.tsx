@@ -36,28 +36,28 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, onNavigate }) => {
   }));
 
   const StatCard = ({ title, value, icon: Icon, color, subtext }: any) => (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-gray-100 dark:border-gray-700/50 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-gray-100 dark:border-gray-700/50 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group">
+      <div className="flex items-center justify-between mb-2 md:mb-4">
         <div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
-          <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-2 tracking-tight">{value}</h3>
+          <p className="text-xs md:text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
+          <h3 className="text-xl md:text-3xl font-bold text-gray-900 dark:text-white mt-1 md:mt-2 tracking-tight">{value}</h3>
         </div>
-        <div className={`p-4 rounded-2xl ${color} shadow-lg shadow-gray-200 dark:shadow-none group-hover:scale-110 transition-transform duration-300`}>
-          <Icon className="w-6 h-6 text-white" />
+        <div className={`p-2 md:p-4 rounded-xl md:rounded-2xl ${color} shadow-lg shadow-gray-200 dark:shadow-none group-hover:scale-110 transition-transform duration-300`}>
+          <Icon className="w-4 h-4 md:w-6 md:h-6 text-white" />
         </div>
       </div>
-      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1">
-         <span className="text-green-500 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-md font-bold text-[10px]">{subtext.includes('+') ? '▲' : '●'}</span>
+      <p className="text-[10px] md:text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1 truncate">
+         <span className="text-green-500 bg-green-50 dark:bg-green-900/20 px-1.5 md:px-2 py-0.5 rounded-md font-bold text-[9px] md:text-[10px]">{subtext.includes('+') ? '▲' : '●'}</span>
          {subtext}
       </p>
     </div>
   );
 
   return (
-    <div className="space-y-8 animate-fade-in pb-20">
+    <div className="space-y-6 md:space-y-8 animate-fade-in pb-24">
       <div className="flex justify-between items-center">
         <div>
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Обзор</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Обзор</h2>
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Сводка ключевых показателей компании</p>
         </div>
         <span className="text-xs font-semibold text-gray-500 bg-white dark:bg-gray-800 px-4 py-2 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hidden md:block">
@@ -65,31 +65,31 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, onNavigate }) => {
         </span>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Stats Grid - 2x2 on Mobile, 4x1 on Desktop */}
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         <StatCard 
-          title="Закрытая выручка" 
+          title="Выручка" 
           value={`₸${(totalRevenue / 1000000).toFixed(1)}М`} 
           icon={DollarSign} 
           color="bg-gradient-to-br from-green-500 to-green-600" 
-          subtext="+12% к прошлому месяцу"
+          subtext="+12%"
         />
         <StatCard 
           title="В воронке" 
           value={`₸${(potentialRevenue / 1000000).toFixed(1)}М`} 
           icon={Clock} 
           color="bg-gradient-to-br from-yellow-500 to-yellow-600" 
-          subtext={`${deals.length} активных сделок`}
+          subtext={`${deals.length} активных`}
         />
         <StatCard 
-          title="Задачи в работе" 
+          title="В работе" 
           value={pendingTasks} 
           icon={AlertCircle} 
           color="bg-gradient-to-br from-orange-500 to-orange-600" 
           subtext={`${importantTasks.length} важных`}
         />
         <StatCard 
-          title="Завершено задач" 
+          title="Завершено" 
           value={completedTasks} 
           icon={CheckCircle} 
           color="bg-gradient-to-br from-purple-500 to-purple-600" 
@@ -98,7 +98,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, onNavigate }) => {
       </div>
 
       {/* Critical Tasks Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
         <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-gray-100 dark:border-gray-700/50">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
             <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-xl">
@@ -158,7 +158,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, onNavigate }) => {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
         {/* Deal Pipeline */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-gray-100 dark:border-gray-700/50">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Воронка продаж</h3>

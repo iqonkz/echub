@@ -505,17 +505,17 @@ const CRM: React.FC<CRMProps> = ({
           </table>
         </div>
 
-        {/* Mobile List */}
-        <div className="md:hidden flex-1 overflow-auto p-4 space-y-3">
+        {/* Mobile List View - Compact */}
+        <div className="md:hidden flex-1 overflow-auto p-4 space-y-3 pb-24">
            {data.map((item: any) => (
-             <div key={item.id} onClick={() => openDetailModal(item)} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm active:scale-95 transition-transform">
-                <div className="flex justify-between items-start mb-2">
-                   <div>
-                      <h4 className="font-bold text-gray-900 dark:text-white">{item.title || item.name || item.subject}</h4>
-                      {activeTab === 'COMPANIES' && <p className="text-xs text-gray-500">{item.industry}</p>}
-                      {activeTab === 'PEOPLE' && <p className="text-xs text-gray-500">{item.position} • {item.organization}</p>}
+             <div key={item.id} onClick={() => openDetailModal(item)} className="bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm active:scale-95 transition-transform">
+                <div className="flex justify-between items-start">
+                   <div className="flex-1 mr-2 min-w-0">
+                      <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate">{item.title || item.name || item.subject}</h4>
+                      {activeTab === 'COMPANIES' && <p className="text-[10px] text-gray-500">{item.industry}</p>}
+                      {activeTab === 'PEOPLE' && <p className="text-[10px] text-gray-500 truncate">{item.position} • {item.organization}</p>}
                    </div>
-                   {activeTab === 'DEALS' && <span className="text-sm font-bold text-primary-600 bg-primary-50 dark:bg-primary-900/20 px-2 py-1 rounded-md">{item.value.toLocaleString()}</span>}
+                   {activeTab === 'DEALS' && <span className="text-xs font-bold text-primary-600 bg-primary-50 dark:bg-primary-900/20 px-1.5 py-0.5 rounded-md flex-shrink-0">{Number(item.value).toLocaleString()}</span>}
                 </div>
              </div>
            ))}
