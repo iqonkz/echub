@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { Mail, Lock, ArrowRight, AlertCircle, Loader2, User, UserPlus } from 'lucide-react';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase';
 import Input from './ui/Input';
 import Button from './ui/Button';
@@ -10,8 +10,10 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
+  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -21,11 +23,26 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setError('');
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        if (name) {
+            await updateProfile(userCredential.user, { displayName: name });
+        }
+      }
       // Login state handled by onAuthStateChanged in App.tsx
     } catch (err: any) {
       console.error(err);
-      setError('Ошибка входа: Неверный email или пароль');
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        setError('Неверный email или пароль');
+      } else if (err.code === 'auth/email-already-in-use') {
+        setError('Пользователь с таким email уже существует');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Пароль должен содержать минимум 6 символов');
+      } else {
+        setError('Ошибка авторизации. Попробуйте позже.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -91,6 +108,20 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {!isLogin && (
+                <Input 
+                  label="Имя"
+                  type="text" 
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Иван Иванов"
+                  required
+                  variant="glass"
+                  icon={<User className="w-5 h-5" />}
+                  containerClassName="animate-fade-in"
+                />
+            )}
+
             <Input 
               label="Email"
               type="email" 
@@ -118,15 +149,25 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               disabled={isLoading}
               isLoading={isLoading}
               className="w-full py-3.5 mt-4"
-              icon={!isLoading && <ArrowRight className="w-5 h-5" />}
+              icon={!isLoading && (isLogin ? <ArrowRight className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />)}
             >
-              Войти в систему
+              {isLogin ? 'Войти в систему' : 'Зарегистрироваться'}
             </Button>
           </form>
 
+          <div className="mt-6 flex flex-col items-center gap-2">
+             <button 
+                type="button"
+                onClick={() => { setIsLogin(!isLogin); setError(''); }}
+                className="text-sm font-bold text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
+             >
+                {isLogin ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти'}
+             </button>
+          </div>
+
           <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700/50 text-center">
              <p className="text-xs text-black dark:text-gray-300 font-medium">
-               Engineering Centre HUB v0.1.7 • Protected by Firebase
+               Engineering Centre HUB v0.1.8 • Protected by Firebase
              </p>
           </div>
         </div>
