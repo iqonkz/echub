@@ -279,9 +279,9 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
             className="grid flex-1 overflow-y-auto min-h-0 bg-white dark:bg-gray-800 pb-24 md:pb-0"
             style={{ gridTemplateColumns: `repeat(${gridColumnsCount}, minmax(0, 1fr))` }}
          >
-             {/* Sticky Headers */}
+             {/* Sticky Headers - Minimized height */}
              {visibleHeaderIndices.map(d => (
-                 <div key={`header-${d}`} className="sticky top-0 z-10 bg-white dark:bg-gray-800 py-3 text-center text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider shadow-sm border-b border-gray-100 dark:border-gray-700">
+                 <div key={`header-${d}`} className="sticky top-0 z-10 bg-white dark:bg-gray-800 py-1.5 text-center text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider shadow-sm border-b border-gray-100 dark:border-gray-700">
                      {dayNamesShort[d]}
                  </div>
              ))}

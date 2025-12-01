@@ -11,9 +11,9 @@ export enum ModuleType {
 }
 
 export enum TaskStatus {
-  TODO = 'Нужно сделать',
+  TODO = 'Новая',
   IN_PROGRESS = 'В работе',
-  REVIEW = 'На проверке',
+  REVIEW = 'Проверка',
   DONE = 'Готово',
 }
 
@@ -45,6 +45,9 @@ export interface User {
   avatar: string;
   role: 'ADMIN' | 'USER';
   crmSettings?: CrmUserSettings;
+  company?: string;
+  position?: string;
+  phone?: string;
 }
 
 export interface TeamMember {
@@ -146,6 +149,7 @@ export interface DocumentItem {
   authorId?: string;
   source?: string;
   linkedEntityId?: string;
+  folder?: string;
 }
 
 export interface Article {

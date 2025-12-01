@@ -30,7 +30,7 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
   useEffect(() => {
      // Auto-fill context/type if a folder is active when opening upload modal
      if (isUploadModalOpen && activeFilter) {
-         if (activeFilter === 'Чертежи') setSourceContext('Чертежи');
+         if (activeFilter === 'Предложения') setSourceContext('Предложения');
          else if (activeFilter === 'Договоры') setSourceContext('Договор');
          else if (activeFilter === 'Бухгалтерия') setSourceContext('Финансы');
          else if (activeFilter !== 'Все') setSourceContext(activeFilter);
@@ -44,21 +44,25 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
   // Filter Logic
   const filteredDocs = docs.filter(d => {
       const matchesSearch = (d.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+      // Check if document has a specific folder assigned OR fall back to type logic
       const matchesFilter = activeFilter ? (
-          activeFilter === 'Чертежи' ? d.type === 'DWG' :
-          activeFilter === 'Договоры' ? (d.type === 'PDF' && (d.name || '').toLowerCase().includes('договор')) : // heuristic
-          activeFilter === 'Бухгалтерия' ? d.type === 'XLSX' :
-          true // HR not mapped strictly in this example
+          (d as any).folder === activeFilter || 
+          (activeFilter === 'Предложения' && d.type === 'DWG') ||
+          (activeFilter === 'Договоры' && d.type === 'PDF' && (d.name || '').toLowerCase().includes('договор')) ||
+          (activeFilter === 'Бухгалтерия' && d.type === 'XLSX')
       ) : true;
+      
       return matchesSearch && matchesFilter;
   });
 
-  // Count files for folders (mock logic based on types)
+  // Count files for folders
   const getCount = (folder: string) => {
-      if (folder === 'Чертежи') return docs.filter(d => d.type === 'DWG').length;
-      if (folder === 'Договоры') return docs.filter(d => d.type === 'PDF').length; // simple proxy
-      if (folder === 'Бухгалтерия') return docs.filter(d => d.type === 'XLSX').length;
-      return docs.length;
+      return docs.filter(d => 
+        (d as any).folder === folder || 
+        (folder === 'Предложения' && d.type === 'DWG') ||
+        (folder === 'Договоры' && d.type === 'PDF' && (d.name || '').toLowerCase().includes('договор')) ||
+        (folder === 'Бухгалтерия' && d.type === 'XLSX')
+      ).length;
   };
 
   const getIcon = (type: string) => {
@@ -117,11 +121,14 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
       
       // Determine type based on filter if not obvious from ext, or default to ext
       let type = typeMap[ext] || ext.toUpperCase().substring(0, 4);
-      if (activeFilter === 'Чертежи') type = 'DWG';
+      if (activeFilter === 'Предложения') type = 'DWG';
       
       const newDocId = `doc${Date.now()}`;
 
-      const newDoc: DocumentItem = {
+      // Assign the current active folder as a property if a filter is active
+      const folderAssignment = activeFilter && activeFilter !== 'Все' ? activeFilter : undefined;
+
+      const newDoc: DocumentItem & { folder?: string } = {
           id: newDocId,
           name: selectedFile.name,
           type: type,
@@ -129,7 +136,8 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
           updatedAt: new Date().toISOString(),
           author: currentUser.name,
           authorId: currentUser.id,
-          source: sourceContext || 'Ручная загрузка'
+          source: sourceContext || 'Ручная загрузка',
+          folder: folderAssignment
       };
 
       // Store file in local registry for this session
@@ -202,7 +210,7 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-5 mb-8">
          {/* Quick Access Folders - Clickable Filters */}
-         {['Чертежи', 'Договоры', 'Бухгалтерия', 'Все'].map((folder, idx) => (
+         {['Предложения', 'Договоры', 'Бухгалтерия', 'Все'].map((folder, idx) => (
            <div 
              key={folder} 
              onClick={() => setActiveFilter(folder === 'Все' ? null : folder)}
@@ -319,6 +327,9 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
                         <div>
                            <p className="font-bold text-gray-900 dark:text-white">Перетащите файл сюда</p>
                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">или нажмите для выбора</p>
+                           {activeFilter && activeFilter !== 'Все' && (
+                               <p className="text-xs text-primary-500 font-bold mt-2">Будет загружено в: {activeFilter}</p>
+                           )}
                         </div>
                      )}
                   </div>
@@ -355,21 +366,28 @@ const Documents: React.FC<DocumentsProps> = ({ docs, onAddDocument, onDeleteDocu
         }
         size="xl"
       >
-                  <div className="flex-1 bg-gray-200 dark:bg-gray-900 flex items-center justify-center p-4 min-h-[60vh]">
-                      {previewDoc && fileRegistry[previewDoc.id] ? (
-                          <iframe 
-                              src={URL.createObjectURL(fileRegistry[previewDoc.id])} 
-                              className="w-full h-full bg-white rounded-lg shadow-inner min-h-[60vh]" 
-                              title="PDF Preview"
-                          />
-                      ) : (
-                        <div className="text-center">
-                            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-500 dark:text-gray-400 mb-4 font-bold">Файл отсутствует на сервере</p>
-                            <p className="text-sm text-gray-400 max-w-md">Это демонстрационная версия. Реальный предпросмотр работает только для файлов, загруженных в текущей сессии.</p>
-                        </div>
-                      )}
-                  </div>
+        <div className="flex-1 bg-gray-200 dark:bg-gray-900 flex items-center justify-center p-0 md:p-1 min-h-[70vh]">
+            {previewDoc && fileRegistry[previewDoc.id] ? (
+                <object
+                    data={URL.createObjectURL(fileRegistry[previewDoc.id])}
+                    type="application/pdf"
+                    width="100%"
+                    height="600px"
+                    className="w-full h-[70vh] rounded-lg"
+                >
+                    <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-white dark:bg-gray-800">
+                         <p>Ваш браузер не поддерживает встроенный просмотр PDF.</p>
+                         <Button onClick={() => handleDownload(previewDoc)} className="mt-4">Скачать файл</Button>
+                    </div>
+                </object>
+            ) : (
+            <div className="text-center p-8">
+                <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400 mb-4 font-bold">Файл отсутствует на сервере</p>
+                <p className="text-sm text-gray-400 max-w-md">Это демонстрационная версия. Реальный предпросмотр работает только для файлов, загруженных в текущей сессии.</p>
+            </div>
+            )}
+        </div>
       </Modal>
     </div>
   );

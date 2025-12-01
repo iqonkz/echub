@@ -31,9 +31,9 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer,
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-[5px] p-4 animate-fade-in">
       <div 
-        className={`bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-2xl shadow-2xl w-full ${sizeClasses[size]} border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh] overflow-hidden transition-all`}
+        className={`bg-white/90 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full ${sizeClasses[size]} border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh] overflow-hidden transition-all`}
         role="dialog"
         aria-modal="true"
       >

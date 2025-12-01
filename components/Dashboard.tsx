@@ -1,28 +1,27 @@
 
 import React from 'react';
-import { Task, Deal, DealStage, TaskStatus, ModuleType } from '../types';
+import { Task, Deal, DealStage, TaskStatus, ModuleType, CrmActivity } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { DollarSign, CheckCircle, Clock, AlertCircle, Flame, FolderKanban } from 'lucide-react';
+import { DollarSign, CheckCircle, Clock, AlertCircle, Flame, FolderKanban, Zap, Phone, Calendar } from 'lucide-react';
 
 interface DashboardProps {
   tasks: Task[];
   deals: Deal[];
+  activities?: CrmActivity[];
   onNavigate: (module: ModuleType) => void;
 }
 
 const COLORS = ['#eab308', '#22c55e', '#f59e0b', '#ef4444']; 
 
-const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, onNavigate }) => {
+const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, activities = [], onNavigate }) => {
   // Calculate metrics
   const totalRevenue = deals.reduce((acc, deal) => deal.stage === DealStage.WON ? acc + deal.value : acc, 0);
   const potentialRevenue = deals.reduce((acc, deal) => deal.stage !== DealStage.WON ? acc + deal.value : acc, 0);
   const pendingTasks = tasks.filter(t => t.status !== TaskStatus.DONE).length;
   const completedTasks = tasks.filter(t => t.status === TaskStatus.DONE).length;
   
-  // New Logic: Overdue & Important
-  const today = new Date().toISOString().split('T')[0];
-  const overdueTasks = tasks.filter(t => t.dueDate < today && t.status !== TaskStatus.DONE);
   const importantTasks = tasks.filter(t => t.priority === 'Высокий' && t.status !== TaskStatus.DONE);
+  const pendingActivities = activities.filter(a => a.status !== 'Выполнено').sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   // Chart Data Preparation
   const dealStageData = Object.values(DealStage).map(stage => ({
@@ -65,7 +64,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, onNavigate }) => {
         </span>
       </div>
 
-      {/* Stats Grid - 2x2 on Mobile, 4x1 on Desktop */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         <StatCard 
           title="Выручка" 
@@ -97,25 +96,35 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, onNavigate }) => {
         />
       </div>
 
-      {/* Critical Tasks Section */}
+      {/* Activities & Important Tasks Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-gray-100 dark:border-gray-700/50">
+        
+        {/* CRM Activities List (Replaces Hot Tasks) */}
+        <div 
+          onClick={() => onNavigate(ModuleType.CRM)}
+          className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-gray-100 dark:border-gray-700/50 cursor-pointer hover:border-primary-200 transition-colors"
+        >
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-            <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-xl">
-                <Flame className="w-5 h-5 text-red-500" />
+            <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                <Zap className="w-5 h-5 text-blue-500" />
             </div>
-            Горящие задачи
+            Список дел (CRM)
           </h3>
-          {overdueTasks.length > 0 ? (
+          {pendingActivities.length > 0 ? (
             <div className="space-y-3">
-              {overdueTasks.map(task => (
-                <div key={task.id} className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-100 dark:border-red-900/30 hover:shadow-md transition-all cursor-pointer">
-                  <div>
-                    <p className="text-sm font-bold text-gray-900 dark:text-white">{task.title}</p>
-                    <p className="text-xs text-red-600 dark:text-red-400 font-medium mt-1">Срок: {task.dueDate}</p>
+              {pendingActivities.slice(0, 5).map(act => (
+                <div key={act.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-2xl border border-gray-100 dark:border-gray-700/50 hover:shadow-md transition-all">
+                  <div className="flex items-center gap-3">
+                     <div className="p-2 bg-white dark:bg-gray-600 rounded-full shadow-sm">
+                        {act.type === 'Звонок' ? <Phone className="w-3.5 h-3.5 text-green-500" /> : <Calendar className="w-3.5 h-3.5 text-purple-500" />}
+                     </div>
+                     <div>
+                       <p className="text-sm font-bold text-gray-900 dark:text-white">{act.subject}</p>
+                       <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{act.date}</p>
+                     </div>
                   </div>
-                  <span className="text-xs font-bold text-red-700 dark:text-red-300 bg-white dark:bg-gray-800 px-3 py-1 rounded-lg shadow-sm">
-                    {task.assignee}
+                  <span className="text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 px-3 py-1 rounded-lg shadow-sm">
+                    {act.status}
                   </span>
                 </div>
               ))}
@@ -125,7 +134,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, onNavigate }) => {
                 <div className="w-12 h-12 bg-green-50 dark:bg-green-900/20 rounded-full flex items-center justify-center mb-3">
                     <CheckCircle className="w-6 h-6 text-green-600" />
                 </div>
-                <p className="text-gray-500 font-medium">Нет просроченных задач! Отличная работа.</p>
+                <p className="text-gray-500 font-medium">Нет запланированных дел!</p>
             </div>
           )}
         </div>
@@ -164,7 +173,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, onNavigate }) => {
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Воронка продаж</h3>
           <div className="h-72 w-full">
              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dealStageData}>
+                <BarChart data={dealStageData} margin={{ left: -20, right: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.1} vertical={false} />
                   <XAxis 
                     dataKey="name" 

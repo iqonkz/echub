@@ -11,6 +11,7 @@ interface TasksProps {
   projects: Project[]; 
   onUpdateTaskStatus: (taskId: string, status: TaskStatus) => void;
   onAddTask: (task: Task) => void;
+  onUpdateTask?: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
   onAddProject: (project: Project) => void;
   onUpdateProject: (project: Project) => void;
@@ -25,6 +26,7 @@ type MainTab = 'PROJECTS' | 'TASKS';
 type TaskFilterTab = 'ALL' | 'STATUS' | 'MINE';
 type ViewMode = 'KANBAN' | 'LIST';
 type SortCriteria = 'NAME' | 'COUNT' | 'ACTIVITY';
+type TaskSortConfig = { key: 'title' | 'status' | 'dueDate' | 'priority' | 'assignee' | 'project'; direction: 'asc' | 'desc' } | null;
 
 const PROJECT_COLORS = [
     { id: 'blue', label: 'Синий', class: 'bg-gradient-to-br from-blue-500 to-blue-600' },
@@ -101,7 +103,7 @@ const StatusSelect = ({ currentStatus, onChange }: { currentStatus: TaskStatus, 
     );
   };
 
-const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAddTask, onDeleteTask, onAddProject, onUpdateProject, searchQuery, currentUser, openEditTask, team, initialTab = 'PROJECTS' }) => {
+const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAddTask, onUpdateTask, onDeleteTask, onAddProject, onUpdateProject, searchQuery, currentUser, openEditTask, team, initialTab = 'PROJECTS' }) => {
   const statusColumns = Object.values(TaskStatus);
   
   const [mainTab, setMainTab] = useState<MainTab>(initialTab);
@@ -109,6 +111,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
   const [activeProject, setActiveProject] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('LIST');
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('NAME');
+  const [taskSortConfig, setTaskSortConfig] = useState<TaskSortConfig>(null);
   
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -138,7 +141,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
   });
 
   // --- Filtering Logic ---
-  const filteredTasks = tasks.filter(t => {
+  let filteredTasks = tasks.filter(t => {
     const matchesSearch = (t.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
                           (t.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (t.assignee || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -155,6 +158,25 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
 
     return matchesSearch && matchesContext;
   });
+
+  // --- Sorting Logic ---
+  if (taskSortConfig) {
+      filteredTasks = [...filteredTasks].sort((a, b) => {
+          const aValue = a[taskSortConfig.key] || '';
+          const bValue = b[taskSortConfig.key] || '';
+          if (aValue < bValue) return taskSortConfig.direction === 'asc' ? -1 : 1;
+          if (aValue > bValue) return taskSortConfig.direction === 'asc' ? 1 : -1;
+          return 0;
+      });
+  }
+
+  const handleTaskSort = (key: TaskSortConfig['key']) => {
+      let direction: 'asc' | 'desc' = 'asc';
+      if (taskSortConfig && taskSortConfig.key === key && taskSortConfig.direction === 'asc') {
+          direction = 'desc';
+      }
+      setTaskSortConfig({ key, direction });
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -218,8 +240,13 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
     };
 
     if (editingTask) {
-        onDeleteTask(task.id);
-        onAddTask(task);
+        if (onUpdateTask) {
+             onUpdateTask(task);
+        } else {
+             // Fallback if onUpdateTask not provided (legacy behavior)
+             onDeleteTask(task.id);
+             onAddTask(task);
+        }
     } else {
         onAddTask(task);
     }
@@ -263,7 +290,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
       });
   };
 
-  // --- Sorting Logic ---
+  // --- Sorting Logic for Projects ---
   const getProjectStats = (projectName: string) => {
       const projectTasks = tasks.filter(t => t.project === projectName);
       return {
@@ -285,6 +312,11 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
       }
       return 0;
   });
+
+  const renderSortIcon = (key: TaskSortConfig['key']) => {
+      if (!taskSortConfig || taskSortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 opacity-30" />;
+      return <ArrowUpDown className={`w-3 h-3 ${taskSortConfig.direction === 'asc' ? 'text-primary-600' : 'text-primary-400'}`} />;
+  };
 
   // --- Renderers ---
 
@@ -381,12 +413,24 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
         <thead className="text-xs text-gray-700 uppercase bg-gray-50/50 dark:bg-gray-700/50 dark:text-gray-400 sticky top-0 z-10 backdrop-blur-sm">
           <tr>
             <th className="px-6 py-4 w-8"></th>
-            <th className="px-6 py-4">Задача</th>
-            <th className="px-6 py-4">Проект</th>
-            <th className="px-6 py-4">Статус</th>
-            <th className="px-6 py-4">Срок</th>
-            <th className="px-6 py-4">Приоритет</th>
-            <th className="px-6 py-4">Ответственный</th>
+            <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('title')}>
+                <div className="flex items-center gap-1">Задача {renderSortIcon('title')}</div>
+            </th>
+            <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('project')}>
+                 <div className="flex items-center gap-1">Проект {renderSortIcon('project')}</div>
+            </th>
+            <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('status')}>
+                 <div className="flex items-center gap-1">Статус {renderSortIcon('status')}</div>
+            </th>
+            <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('dueDate')}>
+                 <div className="flex items-center gap-1">Срок {renderSortIcon('dueDate')}</div>
+            </th>
+            <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('priority')}>
+                 <div className="flex items-center gap-1">Приоритет {renderSortIcon('priority')}</div>
+            </th>
+            <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('assignee')}>
+                 <div className="flex items-center gap-1">Ответственный {renderSortIcon('assignee')}</div>
+            </th>
             <th className="px-6 py-4 text-right">Действия</th>
           </tr>
         </thead>

@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { User, Bell, Lock, Moon, Sun, LogOut, Activity, Smartphone, Type, Monitor, Send, Save, Users, Plus, Edit, Trash2, X, Laptop, Shield, Key, ArchiveRestore, RefreshCcw } from 'lucide-react';
+
+import React, { useState, useRef } from 'react';
+import { User, Bell, Lock, Moon, Sun, LogOut, Activity, Smartphone, Type, Monitor, Send, Save, Users, Plus, Edit, Trash2, X, Laptop, Shield, Key, ArchiveRestore, RefreshCcw, FileText, Check, Upload, Eye } from 'lucide-react';
 import { SystemLog, ModuleType, User as UserType, TeamMember, AppRole, PermissionAction, AppPermissions, DeletedItem } from '../types';
 import Switch from './ui/Switch';
 import Input from './ui/Input';
 import Select from './ui/Select';
 import Button from './ui/Button';
+import Modal from './ui/Modal';
 
 interface SettingsProps {
   currentUser: UserType;
@@ -40,8 +42,18 @@ const Settings: React.FC<SettingsProps> = ({
   
   // Profile Edit State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [editForm, setEditForm] = useState({ name: currentUser.name, email: currentUser.email });
+  const [editForm, setEditForm] = useState({ 
+    name: currentUser.name, 
+    email: currentUser.email,
+    company: currentUser.company || '',
+    position: currentUser.position || '',
+    phone: currentUser.phone || ''
+  });
   
+  // Avatar Upload State
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isAvatarPreviewOpen, setIsAvatarPreviewOpen] = useState(false);
+
   // Team Edit State
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
@@ -60,6 +72,18 @@ const Settings: React.FC<SettingsProps> = ({
       e.preventDefault();
       onUpdateProfile(editForm);
       setIsEditingProfile(false);
+  };
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          const file = e.target.files[0];
+          const reader = new FileReader();
+          reader.onloadend = () => {
+             const base64 = reader.result as string;
+             onUpdateProfile({ avatar: base64 });
+          };
+          reader.readAsDataURL(file);
+      }
   };
 
   // Team Handlers
@@ -117,13 +141,6 @@ const Settings: React.FC<SettingsProps> = ({
     { id: ModuleType.KNOWLEDGE, label: 'База знаний' }
   ];
 
-  // Mock Login History
-  const loginHistory = [
-      { id: 1, device: 'MacBook Pro', ip: '192.168.1.105', time: 'Сейчас', active: true },
-      { id: 2, device: 'iPhone 14', ip: '10.0.0.5', time: '2 часа назад', active: false },
-      { id: 3, device: 'Windows PC', ip: '172.16.0.23', time: 'Вчера, 14:30', active: false },
-  ];
-
   const modulesForPermissions = ['CRM', 'PROJECTS', 'DOCUMENTS', 'SETTINGS'];
   const actionsForPermissions: {key: PermissionAction, label: string}[] = [
       {key: 'READ', label: 'Чтение'},
@@ -134,12 +151,10 @@ const Settings: React.FC<SettingsProps> = ({
       {key: 'IMPORT', label: 'Импорт'}
   ];
   
-  // Tab styling helper
   const getTabStyle = (tab: string) => {
      return `px-4 py-2 text-sm rounded-xl whitespace-nowrap transition-all font-medium ${activeTab === tab ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`;
   };
 
-  // Days left calculation helper
   const getDaysLeft = (deletedAt: string) => {
       const deleteDate = new Date(deletedAt);
       const expirationDate = new Date(deleteDate.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
@@ -174,452 +189,407 @@ const Settings: React.FC<SettingsProps> = ({
       {activeTab === 'PROFILE' && (
       <div className="space-y-6">
         {/* Profile Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
-          <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                <div className="p-2 bg-primary-50 dark:bg-primary-900/20 rounded-xl">
-                    <User className="w-5 h-5 text-primary-500" /> 
-                </div>
-                Профиль
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
+          <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <User className="w-5 h-5 text-primary-500" /> Личная информация
               </h3>
-              {!isEditingProfile && (
-                  <button onClick={() => setIsEditingProfile(true)} className="text-sm font-bold text-primary-600 hover:text-primary-700 hover:underline">Редактировать</button>
-              )}
+              <Button size="sm" variant={isEditingProfile ? 'secondary' : 'primary'} onClick={() => setIsEditingProfile(!isEditingProfile)} icon={<Edit className="w-4 h-4"/>}>
+                  {isEditingProfile ? 'Отмена' : 'Изменить'}
+              </Button>
           </div>
           
-          {isEditingProfile ? (
-              <form onSubmit={handleSaveProfile} className="space-y-5">
-                  <Input 
-                    label="Имя"
-                    value={editForm.name} 
-                    onChange={e => setEditForm({...editForm, name: e.target.value})} 
-                  />
-                  <Input 
-                    label="Email"
-                    value={editForm.email} 
-                    onChange={e => setEditForm({...editForm, email: e.target.value})} 
-                  />
-                  <div className="flex gap-3 justify-end pt-2">
-                      <Button type="button" variant="secondary" onClick={() => setIsEditingProfile(false)}>Отмена</Button>
-                      <Button type="submit" icon={<Save className="w-4 h-4"/>}>Сохранить</Button>
+          <div className="flex flex-col md:flex-row gap-8 items-start">
+              {/* Avatar Column */}
+              <div className="flex flex-col items-center gap-3">
+                  <div 
+                      onClick={() => currentUser.avatar && setIsAvatarPreviewOpen(true)}
+                      className={`w-24 h-24 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-3xl font-bold text-white shadow-lg shadow-primary-500/30 overflow-hidden relative group ${currentUser.avatar ? 'cursor-pointer' : ''}`}
+                  >
+                      {currentUser.avatar ? (
+                          <>
+                            <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover"/>
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <Eye className="w-8 h-8 text-white" />
+                            </div>
+                          </>
+                      ) : currentUser.name.charAt(0)}
                   </div>
-              </form>
-          ) : (
-              <div className="flex items-center gap-6">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary-400 to-primary-500 flex items-center justify-center text-3xl font-bold text-gray-900 shadow-xl shadow-primary-500/20 ring-4 ring-white dark:ring-gray-700">
-                  {currentUser.name.charAt(0)}
-                </div>
-                <div>
-                  <p className="font-bold text-gray-900 dark:text-white text-2xl">{currentUser.name}</p>
-                  <p className="text-gray-500 dark:text-gray-400 mb-3">{currentUser.email}</p>
-                  <div className="flex gap-2">
-                      <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-100 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800">
-                        {currentUser.role === 'ADMIN' ? 'Администратор' : 'Пользователь'}
-                      </span>
-                  </div>
-                </div>
+                  <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-sm font-bold text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
+                  >
+                      Изменить фото
+                  </button>
+                  <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
               </div>
-          )}
+
+              {/* Form Column */}
+              <div className="flex-1 w-full">
+                  {isEditingProfile ? (
+                      <form onSubmit={handleSaveProfile} className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <Input label="Имя" value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} />
+                              <Input label="Email" value={editForm.email} onChange={(e) => setEditForm({...editForm, email: e.target.value})} />
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <Input label="Компания" value={editForm.company} onChange={(e) => setEditForm({...editForm, company: e.target.value})} placeholder="Название компании" />
+                              <Input label="Должность" value={editForm.position} onChange={(e) => setEditForm({...editForm, position: e.target.value})} placeholder="Ваша должность" />
+                          </div>
+                          <Input label="Телефон" value={editForm.phone} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} placeholder="+7 (___) ___-__-__" />
+                          
+                          <div className="flex justify-end pt-2">
+                              <Button type="submit" icon={<Save className="w-4 h-4"/>}>Сохранить</Button>
+                          </div>
+                      </form>
+                  ) : (
+                      <div className="space-y-4">
+                          <div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">ФИО</p>
+                              <p className="font-bold text-gray-900 dark:text-white text-lg">{currentUser.name}</p>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">Email</p>
+                                  <p className="font-medium text-gray-900 dark:text-white">{currentUser.email}</p>
+                              </div>
+                              <div>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">Телефон</p>
+                                  <p className="font-medium text-gray-900 dark:text-white">{currentUser.phone || 'Не указан'}</p>
+                              </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">Компания</p>
+                                  <p className="font-medium text-gray-900 dark:text-white">{currentUser.company || 'Не указана'}</p>
+                              </div>
+                              <div>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">Должность</p>
+                                  <p className="font-medium text-gray-900 dark:text-white">{currentUser.position || 'Не указана'}</p>
+                              </div>
+                          </div>
+                          <div className="pt-2">
+                              <span className="inline-block px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-bold rounded-md uppercase tracking-wider">{currentUser.role}</span>
+                          </div>
+                      </div>
+                  )}
+              </div>
+          </div>
         </div>
 
-        {/* Security / Login History */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
-                    <Shield className="w-5 h-5 text-indigo-500" />
-                </div>
-                Безопасность
-            </h3>
-            
-            <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">История входов</h4>
-            <div className="space-y-4">
-                {loginHistory.map(login => (
-                    <div key={login.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                                {login.device.includes('iPhone') || login.device.includes('Android') ? <Smartphone className="w-5 h-5 text-gray-500" /> : <Laptop className="w-5 h-5 text-gray-500" />}
-                            </div>
-                            <div>
-                                <p className="font-bold text-gray-900 dark:text-white text-sm">{login.device}</p>
-                                <p className="text-xs text-gray-500">{login.ip} • {login.time}</p>
-                            </div>
-                        </div>
-                        {login.active ? (
-                            <span className="text-xs font-bold text-green-600 bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-md">Активен</span>
-                        ) : (
-                             <span className="text-xs font-medium text-gray-400">Завершен</span>
-                        )}
-                    </div>
-                ))}
+        {/* Security / Logout */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                 <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-1">
+                    <Lock className="w-5 h-5 text-gray-500" /> Безопасность
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Текущая сессия: {navigator.userAgent}</p>
             </div>
-
-             <div className="border-t border-gray-100 dark:border-gray-700 mt-6 pt-6">
-                 <Button 
-                   onClick={onLogout}
-                   variant="danger"
-                   icon={<LogOut className="w-5 h-5" />}
-                 >
-                    Выйти из всех устройств
-                 </Button>
-              </div>
+            <Button variant="danger" onClick={onLogout} icon={<LogOut className="w-4 h-4"/>}>Выйти из аккаунта</Button>
         </div>
       </div>
       )}
 
-      {/* Rights Tab Content Omitted for Brevity - Using existing logic but could apply Select if needed */}
-      {activeTab === 'RIGHTS' && currentUser.role === 'ADMIN' && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
-               <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                      <Key className="w-5 h-5 text-primary-500" /> Права доступа
-                  </h3>
-              </div>
-              <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                     <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs font-bold border-b border-gray-200 dark:border-gray-700">
-                         <tr>
-                             <th className="px-6 py-4">Модуль / Действие</th>
-                             <th className="px-6 py-4 text-center">Администратор</th>
-                             <th className="px-6 py-4 text-center">Менеджер</th>
-                             <th className="px-6 py-4 text-center">Сотрудник</th>
-                         </tr>
-                     </thead>
-                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                         {modulesForPermissions.map(module => (
-                             <React.Fragment key={module}>
-                                 <tr className="bg-gray-50/30 dark:bg-gray-800/30">
-                                     <td colSpan={4} className="px-6 py-2 font-bold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700/50 border-y border-gray-200 dark:border-gray-700">
-                                         {module}
-                                     </td>
-                                 </tr>
-                                 {actionsForPermissions.map(action => (
-                                     <tr key={`${module}-${action.key}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                                         <td className="px-6 py-3 text-gray-700 dark:text-gray-300 font-medium">{action.label}</td>
-                                         <td className="px-6 py-3 text-center">
-                                             <Switch checked={true} onChange={() => {}} disabled />
-                                         </td>
-                                         <td className="px-6 py-3 text-center">
-                                             <Switch 
-                                                checked={permissions?.MANAGER?.[module]?.[action.key] || false} 
-                                                onChange={() => togglePermission('MANAGER', module, action.key)}
-                                             />
-                                         </td>
-                                         <td className="px-6 py-3 text-center">
-                                             <Switch 
-                                                checked={permissions?.EMPLOYEE?.[module]?.[action.key] || false} 
-                                                onChange={() => togglePermission('EMPLOYEE', module, action.key)}
-                                             />
-                                         </td>
-                                     </tr>
-                                 ))}
-                             </React.Fragment>
-                         ))}
-                     </tbody>
-                  </table>
-              </div>
-          </div>
-      )}
-
-      {/* Trash Tab */}
-      {activeTab === 'TRASH' && (
-           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
-                <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        <ArchiveRestore className="w-5 h-5 text-orange-500" /> Корзина
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-1">Удаленные элементы хранятся 30 дней.</p>
-                </div>
-                
-                {(!trashItems || trashItems.length === 0) ? (
-                    <div className="p-12 text-center text-gray-500 flex flex-col items-center">
-                        <Trash2 className="w-12 h-12 mb-3 text-gray-300" />
-                        <p>Корзина пуста</p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs font-bold border-b border-gray-200 dark:border-gray-700">
-                                <tr>
-                                    <th className="px-6 py-4">Элемент</th>
-                                    <th className="px-6 py-4">Тип</th>
-                                    <th className="px-6 py-4">Удалено</th>
-                                    <th className="px-6 py-4">Удалил</th>
-                                    <th className="px-6 py-4">Осталось</th>
-                                    <th className="px-6 py-4 text-right">Действия</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {trashItems.map(item => (
-                                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                                        <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">{item.displayTitle}</td>
-                                        <td className="px-6 py-4 text-gray-500">{item.typeLabel}</td>
-                                        <td className="px-6 py-4 text-gray-500 text-xs">{new Date(item.deletedAt).toLocaleString()}</td>
-                                        <td className="px-6 py-4 text-gray-500">{item.deletedBy}</td>
-                                        <td className="px-6 py-4">
-                                            <span className="text-xs font-bold text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded-md">
-                                                {getDaysLeft(item.deletedAt)} дн.
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <button 
-                                                    onClick={() => onRestore && onRestore(item)}
-                                                    className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
-                                                    title="Восстановить"
-                                                >
-                                                    <RefreshCcw className="w-4 h-4" />
-                                                </button>
-                                                <button 
-                                                    onClick={() => onPermanentDelete && onPermanentDelete(item.id)}
-                                                    className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
-                                                    title="Удалить навсегда"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-           </div>
-      )}
-
-      {/* Team Tab */}
-      {activeTab === 'TEAM' && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
-              <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                      <Users className="w-5 h-5 text-primary-500" /> Команда
-                  </h3>
-                  <Button onClick={() => openTeamModal()} icon={<Plus className="w-4 h-4" />}>
-                      Добавить
-                  </Button>
-              </div>
-              <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                      <thead className="bg-gray-50 dark:bg-gray-700/30 text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs font-bold">
-                          <tr>
-                              <th className="px-6 py-4">Имя</th>
-                              <th className="px-6 py-4">Email</th>
-                              <th className="px-6 py-4">Роль</th>
-                              <th className="px-6 py-4">Отдел</th>
-                              <th className="px-6 py-4">Статус</th>
-                              <th className="px-6 py-4 text-right">Действия</th>
-                          </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                          {team.map(member => (
-                              <tr key={member.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                                  <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">{member.name}</td>
-                                  <td className="px-6 py-4 text-gray-600 dark:text-gray-300 font-medium">{member.email}</td>
-                                  <td className="px-6 py-4">
-                                      <span className={`px-2.5 py-1 rounded-md text-xs font-bold ${member.role === 'ADMIN' ? 'bg-red-100 text-red-700' : member.role === 'MANAGER' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
-                                          {member.role}
-                                      </span>
-                                  </td>
-                                  <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{member.department}</td>
-                                  <td className="px-6 py-4">
-                                      <span className={`px-2.5 py-1 rounded-md text-xs font-bold ${member.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                          {member.status}
-                                      </span>
-                                  </td>
-                                  <td className="px-6 py-4 text-right">
-                                      <div className="flex justify-end gap-2">
-                                          <button onClick={() => openTeamModal(member)} className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
-                                              <Edit className="w-4 h-4" />
-                                          </button>
-                                          <button onClick={() => onDeleteTeamMember(member.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                              <Trash2 className="w-4 h-4" />
-                                          </button>
-                                      </div>
-                                  </td>
-                              </tr>
-                          ))}
-                      </tbody>
-                  </table>
-              </div>
-          </div>
-      )}
-
-      {/* Appearance Tab */}
+      {/* Other tabs content (same as before) */}
       {activeTab === 'APPEARANCE' && (
-        <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-                <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
-                    <Monitor className="w-5 h-5 text-purple-500" /> 
-                </div>
-                Тема оформления
-              </h3>
-              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50">
-                <div>
-                  <p className="font-bold text-gray-900 dark:text-white">Режим</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Переключение между светлой и темной темой</p>
-                </div>
-                <button 
-                  onClick={toggleTheme}
-                  className="px-4 py-2 rounded-xl bg-white dark:bg-gray-600 text-gray-700 dark:text-white shadow-sm hover:shadow-md border border-gray-200 dark:border-gray-500 transition-all flex items-center gap-2 font-medium"
-                >
-                   {isDarkMode ? <Sun className="w-4 h-4 text-yellow-400" /> : <Moon className="w-4 h-4 text-purple-500" />}
-                   {isDarkMode ? 'Светлая' : 'Темная'}
-                </button>
-              </div>
-            </div>
+          <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
+                      <Monitor className="w-5 h-5 text-purple-500" /> Интерфейс
+                  </h3>
+                  
+                  <div className="space-y-6">
+                      <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-indigo-900 text-indigo-300' : 'bg-orange-100 text-orange-500'}`}>
+                                  {isDarkMode ? <Moon className="w-6 h-6" /> : <Sun className="w-6 h-6" />}
+                              </div>
+                              <div>
+                                  <p className="font-bold text-gray-900 dark:text-white">Тема оформления</p>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">{isDarkMode ? 'Темная' : 'Светлая'} тема</p>
+                              </div>
+                          </div>
+                          <Switch checked={isDarkMode} onChange={toggleTheme} />
+                      </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-                    <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
-                        <Type className="w-5 h-5 text-indigo-500" /> 
-                    </div>
-                    Типографика
-                </h3>
-                
-                <div className="space-y-6">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <p className="font-bold text-gray-900 dark:text-white">Размер шрифта</p>
-                            <p className="text-sm text-gray-500 mt-1">Размер текста интерфейса</p>
-                        </div>
-                        <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
-                            <button onClick={() => onUpdateAppSettings({fontSize: 'small'})} className={`px-4 py-1.5 text-sm rounded-lg transition-all ${appSettings.fontSize === 'small' ? 'bg-white dark:bg-gray-600 shadow-sm font-bold text-gray-900 dark:text-white' : 'text-gray-500'}`}>S</button>
-                            <button onClick={() => onUpdateAppSettings({fontSize: 'medium'})} className={`px-4 py-1.5 text-sm rounded-lg transition-all ${appSettings.fontSize === 'medium' ? 'bg-white dark:bg-gray-600 shadow-sm font-bold text-gray-900 dark:text-white' : 'text-gray-500'}`}>M</button>
-                            <button onClick={() => onUpdateAppSettings({fontSize: 'large'})} className={`px-4 py-1.5 text-sm rounded-lg transition-all ${appSettings.fontSize === 'large' ? 'bg-white dark:bg-gray-600 shadow-sm font-bold text-gray-900 dark:text-white' : 'text-gray-500'}`}>L</button>
-                        </div>
-                    </div>
+                      <div className="flex items-center justify-between">
+                           <div className="flex items-center gap-3">
+                              <div className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                  <Type className="w-6 h-6" />
+                              </div>
+                              <div>
+                                  <p className="font-bold text-gray-900 dark:text-white">Размер шрифта</p>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">Глобальный размер текста</p>
+                              </div>
+                           </div>
+                           <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                               {(['small', 'medium', 'large'] as const).map(size => (
+                                   <button 
+                                      key={size}
+                                      onClick={() => onUpdateAppSettings({fontSize: size})}
+                                      className={`px-3 py-1 text-xs font-bold rounded-md capitalize transition-all ${appSettings.fontSize === size ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500'}`}
+                                   >
+                                       {size}
+                                   </button>
+                               ))}
+                           </div>
+                      </div>
 
-                    <div className="flex justify-between items-center border-t border-gray-100 dark:border-gray-700 pt-6">
-                        <div>
-                            <p className="font-bold text-gray-900 dark:text-white">Шрифт</p>
-                            <p className="text-sm text-gray-500 mt-1">Стиль отображения текста</p>
-                        </div>
-                        <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
-                            <button onClick={() => onUpdateAppSettings({fontFamily: 'sans'})} className={`px-4 py-1.5 text-sm rounded-lg font-sans transition-all ${appSettings.fontFamily === 'sans' ? 'bg-white dark:bg-gray-600 shadow-sm font-bold text-gray-900 dark:text-white' : 'text-gray-500'}`}>Sans</button>
-                            <button onClick={() => onUpdateAppSettings({fontFamily: 'serif'})} className={`px-4 py-1.5 text-sm rounded-lg font-serif transition-all ${appSettings.fontFamily === 'serif' ? 'bg-white dark:bg-gray-600 shadow-sm font-bold text-gray-900 dark:text-white' : 'text-gray-500'}`}>Serif</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-      )}
-
-      {/* Mobile Menu Tab */}
-      {activeTab === 'MOBILE' && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-                  <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                    <Smartphone className="w-5 h-5 text-green-500" /> 
+                      <div className="flex items-center justify-between">
+                           <div className="flex items-center gap-3">
+                              <div className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                  <Type className="w-6 h-6" />
+                              </div>
+                              <div>
+                                  <p className="font-bold text-gray-900 dark:text-white">Шрифт</p>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">Стиль шрифта</p>
+                              </div>
+                           </div>
+                           <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                               {(['sans', 'serif'] as const).map(font => (
+                                   <button 
+                                      key={font}
+                                      onClick={() => onUpdateAppSettings({fontFamily: font})}
+                                      className={`px-3 py-1 text-xs font-bold rounded-md capitalize transition-all ${appSettings.fontFamily === font ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500'}`}
+                                   >
+                                       {font}
+                                   </button>
+                               ))}
+                           </div>
+                      </div>
                   </div>
-                  Мобильное меню
-              </h3>
-              <p className="text-gray-500 dark:text-gray-400 mb-6 text-sm">Выберите пункты, которые будут отображаться в нижнем меню на мобильных устройствах (макс 5).</p>
-              
-              <div className="space-y-3">
-                 {availableModules.map(m => (
-                     <div key={m.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50">
-                         <span className="text-gray-900 dark:text-white font-bold">{m.label}</span>
-                         <Switch 
-                            checked={mobileMenuConfig?.includes(m.id) || false}
-                            onChange={() => toggleModule(m.id)}
-                         />
-                     </div>
-                 ))}
               </div>
           </div>
       )}
 
-      {/* Logs Tab */}
+      {activeTab === 'TEAM' && (
+          <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                   <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                       <Users className="w-5 h-5 text-blue-500" /> Команда ({team.length})
+                   </h3>
+                   <Button onClick={() => openTeamModal()} icon={<Plus className="w-4 h-4"/>}>Добавить</Button>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                      <table className="w-full text-xs md:text-sm text-left">
+                          <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-gray-700/50">
+                              <tr>
+                                  <th className="px-4 py-3">Сотрудник</th>
+                                  <th className="px-4 py-3 hidden md:table-cell">Роль</th>
+                                  <th className="px-4 py-3 hidden md:table-cell">Отдел</th>
+                                  <th className="px-4 py-3">Статус</th>
+                                  <th className="px-4 py-3 text-right"></th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                              {team.map(member => (
+                                  <tr key={member.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                      <td className="px-4 py-3">
+                                          <div className="flex items-center gap-3">
+                                              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                                                  {member.name.charAt(0)}
+                                              </div>
+                                              <div className="min-w-0">
+                                                  <div className="font-bold text-gray-900 dark:text-white truncate">{member.name}</div>
+                                                  <div className="text-xs text-gray-500 truncate max-w-[120px]">{member.email}</div>
+                                              </div>
+                                          </div>
+                                      </td>
+                                      <td className="px-4 py-3 hidden md:table-cell">
+                                          <span className={`px-2 py-1 rounded-md text-xs font-bold ${member.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'}`}>
+                                              {member.role}
+                                          </span>
+                                      </td>
+                                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300 hidden md:table-cell">{member.department}</td>
+                                      <td className="px-4 py-3">
+                                          <span className={`px-2 py-1 rounded-md text-xs font-bold ${member.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                              {member.status}
+                                          </span>
+                                      </td>
+                                      <td className="px-4 py-3 text-right">
+                                          <div className="flex justify-end gap-1">
+                                              <button onClick={() => openTeamModal(member)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-400 hover:text-primary-500"><Edit className="w-4 h-4"/></button>
+                                              <button onClick={() => onDeleteTeamMember(member.id)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
+                                          </div>
+                                      </td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {activeTab === 'RIGHTS' && permissions && onUpdatePermissions && (
+          <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
+                      <Shield className="w-5 h-5 text-green-500" /> Управление доступом
+                  </h3>
+                  
+                  <div className="space-y-8">
+                      {(['MANAGER', 'EMPLOYEE'] as AppRole[]).map(role => (
+                          <div key={role} className="space-y-4">
+                              <h4 className="font-bold text-gray-800 dark:text-gray-200 uppercase text-sm border-b border-gray-100 dark:border-gray-700 pb-2">{role === 'MANAGER' ? 'Менеджеры' : 'Сотрудники'}</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                  {modulesForPermissions.map(module => (
+                                      <div key={module} className="p-4 rounded-xl bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700">
+                                          <h5 className="font-bold text-sm text-gray-900 dark:text-white mb-3">{module}</h5>
+                                          <div className="space-y-2">
+                                              {actionsForPermissions.map(action => (
+                                                  <div key={action.key} className="flex items-center justify-between">
+                                                      <span className="text-xs text-gray-600 dark:text-gray-400">{action.label}</span>
+                                                      <Switch 
+                                                          checked={permissions[role]?.[module]?.[action.key] || false} 
+                                                          onChange={() => togglePermission(role, module, action.key)}
+                                                      />
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {activeTab === 'TRASH' && trashItems && (
+          <div className="space-y-6">
+               <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+                   <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                       <Trash2 className="w-5 h-5 text-red-500" /> Корзина ({trashItems.length})
+                   </h3>
+                   <div className="space-y-2">
+                       {trashItems.map(item => (
+                           <div key={item.id} className="p-4 rounded-xl border border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+                               <div className="flex items-center gap-3">
+                                   <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+                                       <FileText className="w-4 h-4 text-gray-500" />
+                                   </div>
+                                   <div>
+                                       <p className="font-bold text-sm text-gray-900 dark:text-white">{item.displayTitle}</p>
+                                       <p className="text-xs text-gray-500 flex items-center gap-2">
+                                           <span className="font-medium">{item.typeLabel}</span> • Удален {new Date(item.deletedAt).toLocaleDateString()} • {item.deletedBy}
+                                       </p>
+                                   </div>
+                               </div>
+                               <div className="flex items-center gap-3">
+                                   <span className="text-xs font-bold text-orange-500 bg-orange-50 dark:bg-orange-900/20 px-2 py-1 rounded">
+                                       {getDaysLeft(item.deletedAt)} дн.
+                                   </span>
+                                   <div className="flex gap-1">
+                                       <button onClick={() => onRestore && onRestore(item)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-green-600" title="Восстановить">
+                                           <ArchiveRestore className="w-4 h-4" />
+                                       </button>
+                                       <button onClick={() => onPermanentDelete && onPermanentDelete(item.id)} className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg text-red-600" title="Удалить навсегда">
+                                           <X className="w-4 h-4" />
+                                       </button>
+                                   </div>
+                               </div>
+                           </div>
+                       ))}
+                       {trashItems.length === 0 && <p className="text-gray-500 text-center py-8">Корзина пуста</p>}
+                   </div>
+               </div>
+          </div>
+      )}
+
       {activeTab === 'LOGS' && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 backdrop-blur-sm">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                  <div className="p-2 bg-gray-200 dark:bg-gray-700 rounded-lg">
-                    <Activity className="w-5 h-5 text-gray-600 dark:text-gray-300" /> 
+          <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                      <Activity className="w-5 h-5 text-blue-500" /> Системный журнал
+                  </h3>
+                  <div className="max-h-96 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                      {logs.map((log) => (
+                          <div key={log.id} className="flex items-start justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700/50">
+                              <div className="flex gap-3">
+                                  <div className="mt-1">
+                                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                  </div>
+                                  <div>
+                                      <p className="text-sm font-medium text-gray-900 dark:text-white">{log.action}</p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{log.user} • {log.module}</p>
+                                  </div>
+                              </div>
+                              <span className="text-[10px] font-mono text-gray-400 whitespace-nowrap">{log.timestamp}</span>
+                          </div>
+                      ))}
+                      {logs.length === 0 && <p className="text-gray-500 text-center py-8">Журнал пуст</p>}
                   </div>
-                  Журнал действий
-              </h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-gray-500 dark:text-gray-400">
-                <thead className="bg-gray-50 dark:bg-gray-700 dark:text-gray-400 uppercase tracking-wider text-xs font-bold">
-                  <tr>
-                    <th className="px-6 py-4">Время</th>
-                    <th className="px-6 py-4">Пользователь</th>
-                    <th className="px-6 py-4">Модуль</th>
-                    <th className="px-6 py-4">Действие</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {logs.map(log => (
-                    <tr key={log.id} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                      <td className="px-6 py-4 font-mono text-xs">{log.timestamp}</td>
-                      <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">{log.user}</td>
-                      <td className="px-6 py-4">
-                        <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                          {log.module}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm">{log.action}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-      )}
-
-      {/* Add/Edit Team Member Modal */}
-      {isTeamModalOpen && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm p-4 animate-fade-in">
-              <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-[5px] rounded-2xl shadow-2xl w-full max-w-md border border-white/20 dark:border-gray-700 overflow-hidden">
-                  <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                          {editingMember ? 'Редактировать сотрудника' : 'Добавить сотрудника'}
-                      </h3>
-                      <button onClick={() => setIsTeamModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                          <X className="w-5 h-5" />
-                      </button>
-                  </div>
-                  <form onSubmit={handleSaveTeamMember} className="p-6 space-y-5">
-                      <Input 
-                        label="Имя"
-                        value={teamForm.name || ''} 
-                        onChange={e => setTeamForm({...teamForm, name: e.target.value})}
-                        required
-                      />
-                      <Input 
-                        label="Email"
-                        type="email"
-                        value={teamForm.email || ''} 
-                        onChange={e => setTeamForm({...teamForm, email: e.target.value})}
-                        required
-                      />
-                      <div className="grid grid-cols-2 gap-5">
-                          <Select
-                            label="Роль"
-                            value={teamForm.role || 'EMPLOYEE'} 
-                            onChange={e => setTeamForm({...teamForm, role: e.target.value as any})}
-                            options={[
-                                { value: 'EMPLOYEE', label: 'Сотрудник' },
-                                { value: 'MANAGER', label: 'Менеджер' },
-                                { value: 'ADMIN', label: 'Администратор' }
-                            ]}
-                          />
-                          <Input 
-                             label="Отдел"
-                             value={teamForm.department || ''} 
-                             onChange={e => setTeamForm({...teamForm, department: e.target.value})}
-                          />
-                      </div>
-                      <div className="flex justify-end pt-2">
-                          <Button type="submit">Сохранить</Button>
-                      </div>
-                  </form>
               </div>
           </div>
       )}
+
+      {activeTab === 'MOBILE' && mobileMenuConfig && onUpdateMobileConfig && (
+          <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                      <Smartphone className="w-5 h-5 text-indigo-500" /> Мобильное меню
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Выберите модули, которые будут отображаться в нижней навигации на мобильных устройствах.</p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {availableModules.map(module => (
+                          <div 
+                              key={module.id} 
+                              onClick={() => toggleModule(module.id)}
+                              className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${mobileMenuConfig.includes(module.id) ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-500 shadow-sm' : 'bg-gray-50 dark:bg-gray-700/30 border-gray-200 dark:border-gray-700'}`}
+                          >
+                              <span className={`font-medium text-sm ${mobileMenuConfig.includes(module.id) ? 'text-primary-900 dark:text-primary-300' : 'text-gray-600 dark:text-gray-400'}`}>{module.label}</span>
+                              {mobileMenuConfig.includes(module.id) && <Check className="w-4 h-4 text-primary-500" />}
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Team Modal */}
+      <Modal
+        isOpen={isTeamModalOpen}
+        onClose={() => setIsTeamModalOpen(false)}
+        title={editingMember ? 'Редактирование сотрудника' : 'Новый сотрудник'}
+        footer={
+           <Button onClick={handleSaveTeamMember}>Сохранить</Button>
+        }
+      >
+          <form onSubmit={handleSaveTeamMember} className="space-y-4">
+              <Input label="ФИО" value={teamForm.name || ''} onChange={e => setTeamForm({...teamForm, name: e.target.value})} required />
+              <Input label="Email" type="email" value={teamForm.email || ''} onChange={e => setTeamForm({...teamForm, email: e.target.value})} required />
+              <Input label="Отдел" value={teamForm.department || ''} onChange={e => setTeamForm({...teamForm, department: e.target.value})} />
+              <Select label="Роль" value={teamForm.role || 'EMPLOYEE'} onChange={e => setTeamForm({...teamForm, role: e.target.value as any})}>
+                  <option value="ADMIN">Администратор</option>
+                  <option value="MANAGER">Менеджер</option>
+                  <option value="EMPLOYEE">Сотрудник</option>
+              </Select>
+              <Select label="Статус" value={teamForm.status || 'ACTIVE'} onChange={e => setTeamForm({...teamForm, status: e.target.value as any})}>
+                  <option value="ACTIVE">Активен</option>
+                  <option value="INVITED">Приглашен</option>
+                  <option value="DISABLED">Отключен</option>
+              </Select>
+          </form>
+      </Modal>
+
+      {/* Avatar Preview Modal */}
+      <Modal
+        isOpen={isAvatarPreviewOpen}
+        onClose={() => setIsAvatarPreviewOpen(false)}
+        title="Просмотр фото"
+        size="sm"
+      >
+        <div className="flex justify-center p-4">
+            {currentUser.avatar && (
+                <img src={currentUser.avatar} alt="Full Avatar" className="max-w-full max-h-[60vh] rounded-xl shadow-lg"/>
+            )}
+        </div>
+      </Modal>
     </div>
   );
 };

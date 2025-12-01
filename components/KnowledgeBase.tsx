@@ -43,7 +43,7 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
   const handleAdd = (e: React.FormEvent) => {
       e.preventDefault();
       const article: Article = {
-          id: `kb${Date.now()}`,
+          id: selectedArticle ? selectedArticle.id : `kb${Date.now()}`,
           title: newArticle.title,
           category: newArticle.category,
           content: newArticle.content,
@@ -85,11 +85,19 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
       return article.authorId === currentUser?.id || currentUser?.role === 'ADMIN';
   };
 
+  const handleEdit = (article: Article) => {
+      setSelectedArticle(article);
+      setNewArticle({
+          title: article.title,
+          category: article.category,
+          content: article.content
+      });
+      setIsModalOpen(true);
+      setOpenMenuId(null);
+  }
+
   // Simple formatter to render bold, italic, and lists
   const formatContent = (text: string) => {
-      // Escape HTML first to prevent injection if this was real user content
-      // For this demo, we'll skip complex sanitization but focus on the requested formats
-      
       let formatted = text
           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
           .replace(/_(.*?)_/g, '<em>$1</em>') // Italic
@@ -117,7 +125,7 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
              </button>
           </div>
           <Button 
-             onClick={() => setIsModalOpen(true)}
+             onClick={() => { setSelectedArticle(null); setNewArticle({title: '', category: '', content: ''}); setIsModalOpen(true); }}
              icon={<Plus className="w-5 h-5" />}
           >
              <span className="hidden md:inline">Добавить статью</span>
@@ -178,7 +186,10 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
                            </button>
                            {openMenuId === selectedArticle.id && (
                                <div ref={menuRef} className="absolute right-0 top-10 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-20 py-2 animate-fade-in overflow-hidden">
-                                   <button className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2 font-medium">
+                                   <button 
+                                      onClick={() => handleEdit(selectedArticle)}
+                                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-2 font-medium"
+                                   >
                                        <Pencil className="w-4 h-4" /> Редактировать
                                    </button>
                                    <button className="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2 font-medium">
@@ -194,7 +205,9 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
                  <div className="p-2 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
                     <BookOpen className="w-5 h-5" />
                  </div>
-                 <span className="text-sm font-bold uppercase tracking-wide">{selectedArticle.category}</span>
+                 <span className="text-sm font-bold uppercase tracking-wide flex items-center gap-2 flex-1">
+                    {selectedArticle.category}
+                 </span>
                </div>
                
                <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-6 tracking-tight">{selectedArticle.title}</h1>
@@ -224,11 +237,11 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
         </div>
       </div>
 
-      {/* Add Modal */}
+      {/* Add/Edit Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Новая статья"
+        title={selectedArticle ? "Редактировать статью" : "Новая статья"}
         footer={
            <Button onClick={handleAdd}>Сохранить</Button>
         }

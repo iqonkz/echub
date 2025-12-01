@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Deal, DealStage, Company, Contact, CrmActivity, User, CrmUserSettings, CrmColumn } from '../types';
-import { Plus, LayoutGrid, List, Trash2, Building, Filter, Pencil, ArrowUpDown, Phone, Mail, User as UserIcon, Download, Upload, Settings, Eye } from 'lucide-react';
+import { Plus, LayoutGrid, List, Trash2, Building, Filter, Pencil, ArrowUpDown, Phone, Mail, User as UserIcon, Download, Upload, Settings, Eye, Check } from 'lucide-react';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
 import Switch from './ui/Switch';
@@ -24,6 +24,7 @@ interface CRMProps {
   onUpdateContact: (contact: Contact) => void;
   onDeleteContact: (id: string) => void;
   onAddActivity: (activity: CrmActivity) => void;
+  onDeleteActivity?: (id: string) => void;
   searchQuery: string;
   currentUser?: User;
   onUpdateCrmSettings?: (settings: CrmUserSettings) => void;
@@ -61,7 +62,7 @@ const CRM: React.FC<CRMProps> = ({
   onUpdateDeal, onAddDeal, onDeleteDeal,
   onAddCompany, onUpdateCompany, onDeleteCompany,
   onAddContact, onUpdateContact, onDeleteContact,
-  onAddActivity, 
+  onAddActivity, onDeleteActivity,
   searchQuery, currentUser, onUpdateCrmSettings
 }) => {
   const [activeTab, setActiveTab] = useState<CrmTab>('DEALS');
@@ -80,6 +81,9 @@ const CRM: React.FC<CRMProps> = ({
   
   const [editingItem, setEditingItem] = useState<any>(null); 
   const [formData, setFormData] = useState<any>({});
+
+  // Linking contacts state
+  const [linkedContacts, setLinkedContacts] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -158,12 +162,29 @@ const CRM: React.FC<CRMProps> = ({
   const openModal = (item?: any) => {
       setEditingItem(item || null);
       setFormData(item || {});
+      
+      // If editing company, prep linked contacts
+      if (activeTab === 'COMPANIES' && item) {
+          const linked = contacts.filter(c => c.companyId === item.id).map(c => c.id);
+          setLinkedContacts(linked);
+      } else {
+          setLinkedContacts([]);
+      }
+
       setIsModalOpen(true);
   };
 
   const openDetailModal = (item: any) => {
     setSelectedItem(item);
     setIsDetailModalOpen(true);
+  };
+
+  const handleDeleteActivityAction = () => {
+    if (editingItem && onDeleteActivity) {
+      onDeleteActivity(editingItem.id);
+      setIsModalOpen(false);
+      setEditingItem(null);
+    }
   };
 
   // --- Export / Import Handlers ---
@@ -228,6 +249,12 @@ const CRM: React.FC<CRMProps> = ({
       event.target.value = '';
   };
 
+  const toggleLinkedContact = (contactId: string) => {
+      setLinkedContacts(prev => 
+         prev.includes(contactId) ? prev.filter(id => id !== contactId) : [...prev, contactId]
+      );
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const isEdit = !!editingItem;
@@ -263,8 +290,9 @@ const CRM: React.FC<CRMProps> = ({
       isEdit ? onUpdateDeal(dealData) : onAddDeal(dealData);
 
     } else if (activeTab === 'COMPANIES') {
+      const companyId = isEdit ? id : `c${id}`;
       const companyData = {
-        id: isEdit ? id : `c${id}`,
+        id: companyId,
         name: sanitize(formData.name),
         industry: sanitize(formData.industry),
         phone: sanitize(formData.phone),
@@ -277,7 +305,30 @@ const CRM: React.FC<CRMProps> = ({
         director: sanitize(formData.director),
         createdAt: isEdit ? formData.createdAt : new Date().toISOString().split('T')[0]
       };
-      isEdit ? onUpdateCompany(companyData) : onAddCompany(companyData);
+      
+      if (isEdit) {
+          onUpdateCompany(companyData);
+      } else {
+          onAddCompany(companyData);
+      }
+
+      // Update linked contacts logic
+      // 1. Get all contacts that were previously linked
+      const prevLinked = contacts.filter(c => c.companyId === companyId);
+      // 2. Unlink those that are not in current linkedContacts list
+      prevLinked.forEach(c => {
+          if (!linkedContacts.includes(c.id)) {
+              onUpdateContact({...c, companyId: '', organization: ''});
+          }
+      });
+      // 3. Link new ones
+      linkedContacts.forEach(cid => {
+          const contact = contacts.find(c => c.id === cid);
+          if (contact) {
+              onUpdateContact({...contact, companyId: companyId, organization: companyData.name});
+          }
+      });
+
 
     } else if (activeTab === 'PEOPLE') {
       const company = companies.find(c => c.name === formData.organization);
@@ -439,6 +490,7 @@ const CRM: React.FC<CRMProps> = ({
         {label: 'Дата', key: 'date', visible: true, order: 2},
         {label: 'Статус', key: 'status', visible: true, order: 3}
       ];
+      onDelete = onDeleteActivity;
     }
 
     // Helper to get City from Address
@@ -484,15 +536,13 @@ const CRM: React.FC<CRMProps> = ({
                          content = getCityFromAddress(val);
                      }
 
-                     return <td key={col.key} className="px-4 py-1 whitespace-nowrap">{content}</td>;
+                     return <td key={col.key} className="px-4 py-4 whitespace-nowrap">{content}</td>;
                   })}
                   
-                  <td className="px-4 py-1 text-right flex justify-end gap-1" onClick={e => e.stopPropagation()}>
-                    {activeTab !== 'ACTIVITIES' && (
-                        <button onClick={() => openModal(item)} className="p-1.5 text-gray-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
-                        <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                    )}
+                  <td className="px-4 py-4 text-right flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => openModal(item)} className="p-1.5 text-gray-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
                     {onDelete && (
                       <button onClick={() => onDelete(item.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
                         <Trash2 className="w-3.5 h-3.5" />
@@ -741,13 +791,14 @@ const CRM: React.FC<CRMProps> = ({
                      type="date"
                      value={formData.date || ''} 
                      onChange={e => setFormData({...formData, date: e.target.value})} 
+                     onClick={(e) => e.stopPropagation()} // Fix calendar click issue
                    />
                    
-                   {editingItem && (
+                   {editingItem && onDeleteActivity && (
                        <div className="pt-4 mt-2 border-t border-gray-100 dark:border-gray-700 flex justify-end">
                            <button 
                              type="button" 
-                             onClick={() => onDeleteCompany(editingItem.id)} // Generic delete
+                             onClick={handleDeleteActivityAction}
                              className="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-1"
                            >
                                <Trash2 className="w-4 h-4"/> Удалить действие
@@ -804,6 +855,25 @@ const CRM: React.FC<CRMProps> = ({
                         onChange={e => setFormData({...formData, secondEmail: e.target.value})} 
                       />
                   </div>
+                  
+                  {/* Linked Contacts Selector */}
+                  <div className="space-y-1.5">
+                       <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300">Связанные люди</label>
+                       <div className="border border-gray-200 dark:border-gray-600 rounded-xl p-2 max-h-32 overflow-y-auto space-y-1">
+                           {contacts.map(contact => (
+                               <div key={contact.id} className="flex items-center gap-2 p-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg cursor-pointer" onClick={() => toggleLinkedContact(contact.id)}>
+                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${linkedContacts.includes(contact.id) ? 'bg-primary-500 border-primary-500' : 'border-gray-300'}`}>
+                                        {linkedContacts.includes(contact.id) && <Check className="w-3 h-3 text-white" />}
+                                    </div>
+                                    <span className="text-sm text-gray-700 dark:text-gray-300">{contact.name}</span>
+                                    {contact.companyId && contact.companyId !== editingItem?.id && (
+                                        <span className="text-xs text-gray-400 ml-auto">(уже связан)</span>
+                                    )}
+                               </div>
+                           ))}
+                       </div>
+                  </div>
+
                   <Input 
                     label="Руководитель"
                     value={formData.director || ''} 

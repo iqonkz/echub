@@ -269,6 +269,7 @@ const App: React.FC = () => {
   const deleteContact = (id: string) => handleDelete('contacts', id, 'Контакт', contacts.find(c => c.id === id));
 
   const addActivity = (a: CrmActivity) => handleAdd('activities', a);
+  const deleteActivity = (id: string) => handleDelete('activities', id, 'Действие', activities.find(a => a.id === id));
 
   // Docs
   const addDocItem = (d: DocumentItem) => handleAdd('documents', d);
@@ -356,7 +357,6 @@ const App: React.FC = () => {
                           <rect x="324" width="193.26" height="72" fill="#f6c218"/>
                         </g>
                         <g>
-                          {/* ENGINEERING Text (Yellow) */}
                           <path fill="#f6c218" d="M17.09,48.48h15.04v3.95H13V19.53H31.61v3.9h-14.52v10.2h13.3v3.81h-13.3v11.04Z"/>
                           <path fill="#f6c218" d="M59.93,19.53h4.04V52.43h-3.48l-18.75-25.66v25.66h-3.99V19.53h3.71l18.47,25.38V19.53Z"/>
                           <path fill="#f6c218" d="M85.46,36.12h17.62c-.09,4.95-1.67,9-4.72,12.15s-6.96,4.72-11.73,4.72-8.81-1.61-11.96-4.82c-3.15-3.21-4.72-7.28-4.72-12.2s1.57-8.94,4.72-12.15c3.15-3.21,7.1-4.82,11.87-4.82,2.63,0,5.08,.51,7.36,1.53,2.27,1.02,4.17,2.44,5.69,4.25,1.52,1.82,2.51,3.89,2.98,6.2h-4.23c-.47-1.57-1.27-2.95-2.4-4.16-1.13-1.21-2.5-2.14-4.11-2.8-1.61-.66-3.34-.99-5.19-.99-2.38,0-4.52,.55-6.42,1.65-1.9,1.1-3.38,2.63-4.44,4.61-1.07,1.97-1.6,4.2-1.6,6.67,0,3.82,1.15,6.94,3.45,9.35,2.3,2.41,5.3,3.62,9,3.62,2,0,3.85-.38,5.52-1.13,1.68-.75,3.07-1.8,4.18-3.15,1.11-1.35,1.87-2.9,2.28-4.65h-13.16v-3.9Z"/>
@@ -370,7 +370,6 @@ const App: React.FC = () => {
                           <path fill="#f6c218" d="M294.06,36.12h17.62c-.09,4.95-1.67,9-4.72,12.15s-6.96,4.72-11.73,4.72-8.81-1.61-11.96-4.82c-3.15-3.21-4.72-7.28-4.72-12.2s1.57-8.94,4.72-12.15c3.15-3.21,7.1-4.82,11.87-4.82,2.63,0,5.08,.51,7.36,1.53,2.27,1.02,4.17,2.44,5.69,4.25,1.52,1.82,2.51,3.89,2.98,6.2h-4.23c-.47-1.57-1.27-2.95-2.4-4.16-1.13-1.21-2.5-2.14-4.11-2.8-1.61-.66-3.34-.99-5.19-.99-2.38,0-4.52,.55-6.42,1.65-1.9,1.1-3.38,2.63-4.44,4.61-1.07,1.97-1.6,4.2-1.6,6.67,0,3.82,1.15,6.94,3.45,9.35,2.3,2.41,5.3,3.62,9,3.62,2,0,3.85-.38,5.52-1.13,1.68-.75,3.07-1.8,4.18-3.15,1.11-1.35,1.87-2.9,2.28-4.65h-13.16v-3.9Z"/>
                         </g>
                         <g>
-                          {/* CENTRE Text (Dark) */}
                           <path fill="#111827" d="M351.31,52.97c-4.89,0-8.92-1.6-12.1-4.79-3.18-3.2-4.77-7.25-4.77-12.17s1.59-8.98,4.77-12.17c3.18-3.2,7.21-4.79,12.1-4.79,2.51,0,4.83,.48,6.98,1.43,2.15,.96,3.96,2.31,5.45,4.07,1.49,1.75,2.53,3.81,3.13,6.16h-4.18c-.88-2.38-2.32-4.25-4.32-5.59-2.01-1.35-4.36-2.02-7.05-2.02-3.7,0-6.73,1.21-9.09,3.64-2.37,2.43-3.55,5.53-3.55,9.31s1.18,6.87,3.55,9.28c2.37,2.41,5.4,3.62,9.09,3.62,2.76,0,5.15-.71,7.19-2.14,2.04-1.43,3.48-3.41,4.32-5.95h4.23c-.94,3.73-2.83,6.68-5.66,8.86-2.84,2.18-6.2,3.27-10.08,3.27Z"/>
                           <path fill="#111827" d="M376.52,48.5h15.04v3.95h-19.13V19.55h18.61v3.9h-14.52v10.2h13.3v3.81h-13.3v11.04Z"/>
                           <path fill="#111827" d="M419.36,19.55h4.04V52.45h-3.48l-18.75-25.66v25.66h-3.99V19.55h3.71l18.47,25.38V19.55Z"/>
@@ -390,8 +389,6 @@ const App: React.FC = () => {
                           <path fill="#111827" className="dark:fill-gray-100" d="M36,0V72H12c-6.63,0-12-5.37-12-12V12C0,5.37,5.37,0,12,0h24Z"/>
                           <path fill="#f6c218" d="M72,12V60c0,6.63-5.37,12-12,12h-24V0h24c6.63,0,12,5.37,12,12Z"/>
                         </g>
-                        <path fill="#111827" className="dark:fill-gray-100" d="M66.06,51.99c-1.61,.8-4.82,1.61-8.94,1.61-9.55,0-16.73-6.03-16.73-17.13s7.19-17.79,17.69-17.79c4.22,0,6.88,.9,8.04,1.51l-1.06,3.57c-1.66-.81-4.02-1.41-6.83-1.41-7.94,0-13.22,5.08-13.22,13.97,0,8.29,4.77,13.62,13.01,13.62,2.66,0,5.38-.55,7.14-1.41l.9,3.47Z"/>
-                        <path fill="#f6c218" d="M26.54,37.19H13.37v12.21h14.67v3.67H9V19.2H27.29v3.67H13.37v10.7h13.16v3.62Z"/>
                      </svg>
                  </div>
               )}
@@ -433,8 +430,8 @@ const App: React.FC = () => {
                           <p className="text-sm font-bold text-gray-900 dark:text-white leading-none">{currentUser.name}</p>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{currentUser.role === 'ADMIN' ? 'Admin' : 'User'}</p>
                       </div>
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-primary-500 flex items-center justify-center text-gray-900 font-bold shadow-md">
-                          {currentUser.avatar ? <img src={currentUser.avatar} alt="Avatar" className="w-full h-full rounded-full object-cover"/> : currentUser.name.charAt(0)}
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-primary-500 flex items-center justify-center text-gray-900 font-bold shadow-md overflow-hidden">
+                          {currentUser.avatar ? <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover"/> : currentUser.name.charAt(0)}
                       </div>
                   </button>
 
@@ -462,12 +459,13 @@ const App: React.FC = () => {
 
         {/* Dynamic Content */}
         <div className="flex-1 overflow-auto p-4 md:p-8 relative">
-           {activeModule === ModuleType.HOME && <Dashboard tasks={tasks} deals={deals} onNavigate={setActiveModule} />}
+           {activeModule === ModuleType.HOME && <Dashboard tasks={tasks} deals={deals} onNavigate={setActiveModule} activities={activities} />}
            {activeModule === ModuleType.TASKS && <Tasks 
                 tasks={tasks} 
                 projects={projects}
                 onUpdateTaskStatus={updateTaskStatus} 
                 onAddTask={addTask} 
+                onUpdateTask={updateTask}
                 onDeleteTask={deleteTask}
                 onAddProject={addProject}
                 onUpdateProject={updateProject}
@@ -482,6 +480,7 @@ const App: React.FC = () => {
                 projects={projects}
                 onUpdateTaskStatus={updateTaskStatus} 
                 onAddTask={addTask} 
+                onUpdateTask={updateTask}
                 onDeleteTask={deleteTask}
                 onAddProject={addProject}
                 onUpdateProject={updateProject}
@@ -505,6 +504,7 @@ const App: React.FC = () => {
                 onUpdateContact={updateContact}
                 onDeleteContact={deleteContact}
                 onAddActivity={addActivity}
+                onDeleteActivity={deleteActivity}
                 searchQuery={searchQuery}
                 currentUser={currentUser}
            />}
@@ -514,7 +514,6 @@ const App: React.FC = () => {
                     // Switch to tasks and open modal (simulated by passing prop or state management)
                     setActiveModule(ModuleType.TASKS);
                     // In a real app, use a context or global state store to trigger the modal
-                    // For now, we just navigate
                 }}
                 onAddActivity={addActivity}
            />}
