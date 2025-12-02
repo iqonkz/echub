@@ -184,7 +184,7 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
     const isToday = todayStr === dateStr;
 
     return (
-      <div key={cell.key} className={`bg-white/50 dark:bg-gray-800/50 p-1 md:p-2 border border-gray-100 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-700 transition-all group relative backdrop-blur-sm ${isWeekView ? 'min-h-[80px] md:min-h-[300px]' : 'min-h-[80px] md:min-h-[120px]'}`}>
+      <div key={cell.key} className={`bg-white/50 dark:bg-gray-800/50 p-1 md:p-2 border border-gray-100 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-700 transition-all group relative backdrop-blur-sm min-h-[80px] md:min-h-[120px]`}>
         <div className="flex justify-between items-start mb-1 md:mb-2">
            <span className={`text-xs md:text-sm font-semibold w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full transition-colors ${
              isToday ? 'bg-primary-500 text-gray-900 shadow-md' : 'text-gray-700 dark:text-gray-300 group-hover:bg-gray-100 dark:group-hover:bg-gray-600'

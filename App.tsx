@@ -277,6 +277,7 @@ const App: React.FC = () => {
 
   // KB
   const addArticle = (a: Article) => handleAdd('articles', a);
+  const deleteArticle = (id: string) => handleDelete('articles', id, 'Статья', articles.find(a => a.id === id));
 
   // Settings / Team
   const updateProfile = async (data: Partial<User>) => {
@@ -376,18 +377,6 @@ const App: React.FC = () => {
                           <path fill="#111827" d="M451.99,19.55v3.85h-10.01v29.05h-4.14V23.4h-10.01v-3.85h24.16Z"/>
                           <path fill="#111827" d="M475.55,52.45l-7.52-12.88h-7.52v12.88h-4.09V19.55h12.45c3.1,0,5.66,.95,7.68,2.84,2.02,1.9,3.03,4.3,3.03,7.21,0,2.29-.66,4.28-1.97,5.99-1.32,1.71-3.07,2.88-5.26,3.5l7.85,13.35h-4.65Zm-15.04-29v12.22h8.18c1.97,0,3.59-.57,4.84-1.72,1.25-1.14,1.88-2.61,1.88-4.39s-.63-3.25-1.88-4.39c-1.25-1.14-2.87-1.72-4.84-1.72h-8.18Z"/>
                           <path fill="#111827" d="M489.96,48.5h15.04v3.95h-19.13V19.55h18.61v3.9h-14.52v10.2h13.3v3.81h-13.3v11.04Z"/>
-                        </g>
-                     </svg>
-                 </div>
-              )}
-
-              {/* Mobile: Icon Logo (Shown when search is active) */}
-              {isSearchActive && (
-                 <div className="md:hidden mr-3">
-                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" className="h-8 w-8">
-                        <g>
-                          <path fill="#111827" className="dark:fill-gray-100" d="M36,0V72H12c-6.63,0-12-5.37-12-12V12C0,5.37,5.37,0,12,0h24Z"/>
-                          <path fill="#f6c218" d="M72,12V60c0,6.63-5.37,12-12,12h-24V0h24c6.63,0,12,5.37,12,12Z"/>
                         </g>
                      </svg>
                  </div>
@@ -527,6 +516,7 @@ const App: React.FC = () => {
            {activeModule === ModuleType.KNOWLEDGE && <KnowledgeBase 
                 articles={articles} 
                 onAddArticle={addArticle}
+                onDeleteArticle={deleteArticle}
                 searchQuery={searchQuery}
                 currentUser={currentUser}
            />}

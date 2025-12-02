@@ -386,7 +386,7 @@ const Settings: React.FC<SettingsProps> = ({
                           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                               {team.map(member => (
                                   <tr key={member.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                                      <td className="px-4 py-3">
+                                      <td className="px-4 py-2">
                                           <div className="flex items-center gap-3">
                                               <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold text-xs flex-shrink-0">
                                                   {member.name.charAt(0)}
@@ -397,18 +397,18 @@ const Settings: React.FC<SettingsProps> = ({
                                               </div>
                                           </div>
                                       </td>
-                                      <td className="px-4 py-3 hidden md:table-cell">
+                                      <td className="px-4 py-2 hidden md:table-cell">
                                           <span className={`px-2 py-1 rounded-md text-xs font-bold ${member.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'}`}>
                                               {member.role}
                                           </span>
                                       </td>
-                                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300 hidden md:table-cell">{member.department}</td>
-                                      <td className="px-4 py-3">
+                                      <td className="px-4 py-2 text-gray-600 dark:text-gray-300 hidden md:table-cell">{member.department}</td>
+                                      <td className="px-4 py-2">
                                           <span className={`px-2 py-1 rounded-md text-xs font-bold ${member.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                                               {member.status}
                                           </span>
                                       </td>
-                                      <td className="px-4 py-3 text-right">
+                                      <td className="px-4 py-2 text-right">
                                           <div className="flex justify-end gap-1">
                                               <button onClick={() => openTeamModal(member)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-400 hover:text-primary-500"><Edit className="w-4 h-4"/></button>
                                               <button onClick={() => onDeleteTeamMember(member.id)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>

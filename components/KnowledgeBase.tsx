@@ -8,13 +8,14 @@ import Button from './ui/Button';
 interface KBProps {
   articles: Article[];
   onAddArticle: (article: Article) => void;
+  onDeleteArticle: (id: string) => void;
   searchQuery: string;
   currentUser?: any;
 }
 
 type KbTab = 'WORK' | 'PERSONAL';
 
-const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery, currentUser }) => {
+const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, onDeleteArticle, searchQuery, currentUser }) => {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [activeTab, setActiveTab] = useState<KbTab>('WORK');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -94,6 +95,14 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
       });
       setIsModalOpen(true);
       setOpenMenuId(null);
+  }
+
+  const handleDelete = () => {
+    if (selectedArticle) {
+      onDeleteArticle(selectedArticle.id);
+      setSelectedArticle(null);
+      setOpenMenuId(null);
+    }
   }
 
   // Simple formatter to render bold, italic, and lists
@@ -192,7 +201,10 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, searchQuery,
                                    >
                                        <Pencil className="w-4 h-4" /> Редактировать
                                    </button>
-                                   <button className="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2 font-medium">
+                                   <button 
+                                      onClick={handleDelete}
+                                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2 font-medium"
+                                   >
                                        <Trash2 className="w-4 h-4" /> Удалить
                                    </button>
                                </div>

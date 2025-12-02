@@ -45,6 +45,7 @@ const PROJECT_COLORS = [
 const StatusSelect = ({ currentStatus, onChange }: { currentStatus: TaskStatus, onChange: (s: TaskStatus) => void }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
 
     useEffect(() => {
       const handleClickOutside = (event: any) => {
@@ -52,9 +53,31 @@ const StatusSelect = ({ currentStatus, onChange }: { currentStatus: TaskStatus, 
           setIsOpen(false);
         }
       };
+      // Handle scroll events to close dropdown or update position
+      const handleScroll = () => {
+         if (isOpen) setIsOpen(false);
+      }
+      
       document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+      window.addEventListener('scroll', handleScroll, true);
+      return () => {
+          document.removeEventListener('mousedown', handleClickOutside);
+          window.removeEventListener('scroll', handleScroll, true);
+      };
+    }, [isOpen]);
+
+    const toggleDropdown = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!isOpen && dropdownRef.current) {
+            const rect = dropdownRef.current.getBoundingClientRect();
+            setPosition({
+                top: rect.bottom + window.scrollY,
+                left: rect.left + window.scrollX,
+                width: 192 // w-48
+            });
+        }
+        setIsOpen(!isOpen);
+    };
 
     const statusColors = {
       [TaskStatus.TODO]: 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600',
@@ -73,7 +96,7 @@ const StatusSelect = ({ currentStatus, onChange }: { currentStatus: TaskStatus, 
     return (
       <div className="relative" ref={dropdownRef}>
         <button
-          onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
+          onClick={toggleDropdown}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border shadow-sm hover:shadow-md ${statusColors[currentStatus]}`}
         >
           <span className={`w-2 h-2 rounded-full shadow-sm ${dotColors[currentStatus]}`} />
@@ -82,7 +105,15 @@ const StatusSelect = ({ currentStatus, onChange }: { currentStatus: TaskStatus, 
         </button>
         
         {isOpen && (
-          <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden animate-fade-in ring-1 ring-black/5">
+          // Use fixed positioning to break out of table overflow
+          <div 
+             className="fixed bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-[9999] overflow-hidden animate-fade-in ring-1 ring-black/5"
+             style={{ 
+                 top: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().bottom + 5 : 0, 
+                 left: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().left : 0,
+                 width: '12rem'
+             }}
+          >
             {Object.values(TaskStatus).map((status) => (
               <div
                 key={status}
@@ -130,6 +161,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
   });
   
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
   // --- Access Control Logic ---
   const accessibleProjects = projects.filter(p => {
@@ -199,18 +231,34 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
     setExpandedTasks(newExpanded);
   };
 
+  // Helper to calculate default date (+3 working days)
+  const addWorkingDays = (startDate: Date, days: number) => {
+      let result = new Date(startDate);
+      let count = 0;
+      while (count < days) {
+          result.setDate(result.getDate() + 1);
+          if (result.getDay() !== 0 && result.getDay() !== 6) { // Skip Sunday (0) and Saturday (6)
+              count++;
+          }
+      }
+      return result;
+  };
+
   const openModal = (taskToEdit?: Task, parentId?: string, project?: string) => {
       if (taskToEdit) {
           setEditingTask(taskToEdit);
           setNewTaskData(taskToEdit);
       } else {
           setEditingTask(null);
+          // Calculate +3 working days default
+          const defaultDate = addWorkingDays(new Date(), 3).toISOString().split('T')[0];
+
           setNewTaskData({
               parentId,
               project: project || activeProject || 'Общее',
               assignee: currentUser?.name || 'Админ',
               observer: '',
-              dueDate: new Date().toISOString().split('T')[0],
+              dueDate: defaultDate,
               priority: 'Средний',
               title: '',
               description: ''
@@ -288,6 +336,24 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
               return { ...prev, allowedUsers: [...current, userId] };
           }
       });
+  };
+
+  // --- Drag and Drop Logic ---
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+      setDraggedTaskId(id);
+      e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+      e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent, newStatus: TaskStatus) => {
+      e.preventDefault();
+      if (draggedTaskId) {
+          onUpdateTaskStatus(draggedTaskId, newStatus);
+          setDraggedTaskId(null);
+      }
   };
 
   // --- Sorting Logic for Projects ---
@@ -388,6 +454,8 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
           <div 
             key={status} 
             className="flex-none w-80 flex flex-col bg-gray-100/50 dark:bg-gray-800/30 rounded-2xl border border-gray-200/50 dark:border-gray-700/30 h-full transition-colors backdrop-blur-sm"
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, status)}
           >
             <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-0 flex items-center justify-between sticky top-0 bg-gray-50/90 dark:bg-gray-800/90 z-10 p-4 rounded-t-2xl border-b border-gray-200 dark:border-gray-700 backdrop-blur-md">
               {status}
@@ -405,119 +473,139 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
     </div>
   );
 
-  const renderList = () => (
+  const renderTaskRow = (task: Task) => (
+    <React.Fragment key={task.id}>
+        <tr className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group ${task.status === TaskStatus.DONE ? 'bg-gray-50/50 dark:bg-gray-800/50 opacity-60' : 'bg-white dark:bg-gray-800'}`} onClick={() => openModal(task)}>
+        <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+            {filteredTasks.some(t => t.parentId === task.id) && (
+                <button onClick={() => toggleExpand(task.id)} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400 hover:text-primary-500 transition-colors">
+                    {expandedTasks.has(task.id) ? <ChevronDown className="w-4 h-4"/> : <ChevronRight className="w-4 h-4"/>}
+                </button>
+            )}
+        </td>
+        <td className="px-6 py-2.5 font-bold text-gray-900 dark:text-white">
+            <span className={task.status === TaskStatus.DONE ? 'text-gray-500 dark:text-gray-400' : ''}>{task.title}</span>
+            <div className="text-xs font-normal text-gray-400 truncate max-w-xs mt-0.5">{task.description}</div>
+        </td>
+        <td className="px-6 py-2.5">
+            <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                <FolderOpen className="w-3.5 h-3.5 text-gray-400" />
+                <span className="font-medium text-xs">{task.project}</span>
+            </div>
+        </td>
+        <td className="px-6 py-2.5" onClick={(e) => e.stopPropagation()}>
+            <StatusSelect 
+            currentStatus={task.status}
+            onChange={(s) => onUpdateTaskStatus(task.id, s)}
+            />
+        </td>
+        <td className="px-6 py-2.5 font-medium text-xs">{new Date(task.dueDate).toLocaleDateString()}</td>
+        <td className="px-6 py-2.5">
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${getPriorityColor(task.priority)}`}>
+                {task.priority}
+            </span>
+        </td>
+        <td className="px-6 py-2.5">
+            <div className="flex items-center gap-2 text-xs">
+                <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[10px] font-bold text-gray-600 dark:text-gray-300">
+                    {(task.assignee || '?').charAt(0)}
+                </div>
+                {task.assignee || 'Unknown'}
+            </div>
+        </td>
+        <td className="px-6 py-2.5 text-right flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => openModal(undefined, task.id, task.project)} className="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-all" title="Добавить подзадачу"><Layers className="w-3.5 h-3.5"/></button>
+            <button onClick={() => openModal(task)} className="p-1.5 text-gray-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-all"><Pencil className="w-3.5 h-3.5"/></button>
+            <button onClick={() => onDeleteTask(task.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"><Trash2 className="w-3.5 h-3.5"/></button>
+        </td>
+        </tr>
+        {/* Subtasks in List View */}
+        {expandedTasks.has(task.id) && filteredTasks.filter(st => st.parentId === task.id).map(st => (
+        <tr key={st.id} className="bg-gray-50/50 dark:bg-gray-800/30 border-l-4 border-l-primary-500 cursor-pointer" onClick={() => openModal(st)}>
+            <td className="px-4 py-2 text-right"></td>
+            <td className="px-6 py-2 pl-4 font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2 text-xs">
+                <ArrowLeft className="w-3 h-3 rotate-180 text-gray-400" />
+                {st.title}
+            </td>
+            <td className="px-6 py-2"></td> {/* Empty Project column for subtasks */}
+            <td className="px-6 py-2" onClick={(e) => e.stopPropagation()}>
+                <div className="scale-90 origin-left">
+                    <StatusSelect 
+                        currentStatus={st.status}
+                        onChange={(s) => onUpdateTaskStatus(st.id, s)}
+                    />
+                </div>
+            </td>
+            <td className="px-6 py-2 text-gray-500 text-xs">{new Date(st.dueDate).toLocaleDateString()}</td>
+            <td className="px-6 py-2"><span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${getPriorityColor(st.priority)}`}>{st.priority}</span></td>
+            <td className="px-6 py-2 text-gray-500 text-xs">{st.assignee}</td>
+            <td className="px-6 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => openModal(st)} className="text-gray-400 hover:text-primary-500 mr-2"><Pencil className="w-3 h-3"/></button>
+                <button onClick={() => onDeleteTask(st.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-3 h-3"/></button>
+            </td>
+        </tr>
+        ))}
+    </React.Fragment>
+  );
+
+  const renderList = () => {
+    // Filter out subtasks for the main list, as they are rendered under parents
+    const rootTasks = filteredTasks.filter(t => !t.parentId);
+    const activeTasks = rootTasks.filter(t => t.status !== TaskStatus.DONE);
+    const completedTasks = rootTasks.filter(t => t.status === TaskStatus.DONE);
+
+    return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-gray-200 dark:border-gray-700 overflow-hidden h-full flex flex-col">
       {/* Desktop Table View */}
       <div className="hidden md:block overflow-auto flex-1 no-scrollbar pb-32 md:pb-0">
       <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
         <thead className="text-xs text-gray-700 uppercase bg-gray-50/50 dark:bg-gray-700/50 dark:text-gray-400 sticky top-0 z-10 backdrop-blur-sm">
           <tr>
-            <th className="px-6 py-4 w-8"></th>
-            <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('title')}>
+            <th className="px-6 py-3 w-8"></th>
+            <th className="px-6 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('title')}>
                 <div className="flex items-center gap-1">Задача {renderSortIcon('title')}</div>
             </th>
-            <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('project')}>
+            <th className="px-6 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('project')}>
                  <div className="flex items-center gap-1">Проект {renderSortIcon('project')}</div>
             </th>
-            <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('status')}>
+            <th className="px-6 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('status')}>
                  <div className="flex items-center gap-1">Статус {renderSortIcon('status')}</div>
             </th>
-            <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('dueDate')}>
+            <th className="px-6 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('dueDate')}>
                  <div className="flex items-center gap-1">Срок {renderSortIcon('dueDate')}</div>
             </th>
-            <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('priority')}>
+            <th className="px-6 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('priority')}>
                  <div className="flex items-center gap-1">Приоритет {renderSortIcon('priority')}</div>
             </th>
-            <th className="px-6 py-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('assignee')}>
+            <th className="px-6 py-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600" onClick={() => handleTaskSort('assignee')}>
                  <div className="flex items-center gap-1">Ответственный {renderSortIcon('assignee')}</div>
             </th>
-            <th className="px-6 py-4 text-right">Действия</th>
+            <th className="px-6 py-3 text-right">Действия</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-          {filteredTasks.filter(t => !t.parentId).map(task => (
-             <React.Fragment key={task.id}>
-               <tr className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group" onClick={() => openModal(task)}>
-                  <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
-                     {filteredTasks.some(t => t.parentId === task.id) && (
-                        <button onClick={() => toggleExpand(task.id)} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400 hover:text-primary-500 transition-colors">
-                          {expandedTasks.has(task.id) ? <ChevronDown className="w-4 h-4"/> : <ChevronRight className="w-4 h-4"/>}
-                        </button>
-                     )}
-                  </td>
-                  <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">
-                    {task.title}
-                    <div className="text-xs font-normal text-gray-400 truncate max-w-xs mt-0.5">{task.description}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                     <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
-                        <FolderOpen className="w-3.5 h-3.5 text-gray-400" />
-                        <span className="font-medium">{task.project}</span>
-                     </div>
-                  </td>
-                  <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                    <StatusSelect 
-                      currentStatus={task.status}
-                      onChange={(s) => onUpdateTaskStatus(task.id, s)}
-                    />
-                  </td>
-                  <td className="px-6 py-4 font-medium">{new Date(task.dueDate).toLocaleDateString()}</td>
-                  <td className="px-6 py-4">
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${getPriorityColor(task.priority)}`}>
-                       {task.priority}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[10px] font-bold text-gray-600 dark:text-gray-300">
-                              {(task.assignee || '?').charAt(0)}
-                          </div>
-                          {task.assignee || 'Unknown'}
-                      </div>
-                  </td>
-                  <td className="px-6 py-4 text-right flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => openModal(undefined, task.id, task.project)} className="p-2 text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-all" title="Добавить подзадачу"><Layers className="w-4 h-4"/></button>
-                    <button onClick={() => openModal(task)} className="p-2 text-gray-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-all"><Pencil className="w-4 h-4"/></button>
-                    <button onClick={() => onDeleteTask(task.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"><Trash2 className="w-4 h-4"/></button>
-                  </td>
-               </tr>
-               {/* Subtasks in List View */}
-               {expandedTasks.has(task.id) && filteredTasks.filter(st => st.parentId === task.id).map(st => (
-                  <tr key={st.id} className="bg-gray-50/50 dark:bg-gray-800/30 border-l-4 border-l-primary-500 cursor-pointer" onClick={() => openModal(st)}>
-                     <td className="px-4 py-3 text-right"></td>
-                     <td className="px-6 py-3 pl-4 font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                       <ArrowLeft className="w-3 h-3 rotate-180 text-gray-400" />
-                       {st.title}
-                     </td>
-                     <td className="px-6 py-3"></td> {/* Empty Project column for subtasks */}
-                     <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
-                        <StatusSelect 
-                          currentStatus={st.status}
-                          onChange={(s) => onUpdateTaskStatus(st.id, s)}
-                        />
-                     </td>
-                     <td className="px-6 py-3 text-gray-500 text-xs">{new Date(st.dueDate).toLocaleDateString()}</td>
-                     <td className="px-6 py-3"><span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${getPriorityColor(st.priority)}`}>{st.priority}</span></td>
-                     <td className="px-6 py-3 text-gray-500 text-xs">{st.assignee}</td>
-                     <td className="px-6 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => openModal(st)} className="text-gray-400 hover:text-primary-500 mr-2"><Pencil className="w-3 h-3"/></button>
-                        <button onClick={() => onDeleteTask(st.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-3 h-3"/></button>
-                     </td>
-                  </tr>
-               ))}
-             </React.Fragment>
-          ))}
+          {activeTasks.map(task => renderTaskRow(task))}
+          
+          {completedTasks.length > 0 && (
+             <tr>
+                 <td colSpan={8} className="px-6 py-3 bg-gray-50 dark:bg-gray-900/50 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider border-y border-gray-100 dark:border-gray-700">
+                     Завершенные задачи ({completedTasks.length})
+                 </td>
+             </tr>
+          )}
+          
+          {completedTasks.map(task => renderTaskRow(task))}
         </tbody>
       </table>
       </div>
 
       {/* Mobile List View - Compact Layout */}
       <div className="md:hidden flex-1 overflow-auto p-4 space-y-3 pb-32">
-         {filteredTasks.filter(t => !t.parentId).map(task => (
-           <div key={task.id} onClick={() => openModal(task)} className="bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm active:scale-95 transition-transform">
+         {rootTasks.sort((a,b) => (a.status === TaskStatus.DONE ? 1 : 0) - (b.status === TaskStatus.DONE ? 1 : 0)).map(task => (
+           <div key={task.id} onClick={() => openModal(task)} className={`bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm active:scale-95 transition-transform ${task.status === TaskStatus.DONE ? 'opacity-60 bg-gray-50' : ''}`}>
               <div className="flex justify-between items-start mb-1.5">
                  <div className="flex-1 mr-2">
-                    <h4 className="font-bold text-gray-900 dark:text-white line-clamp-1 text-sm">{task.title}</h4>
+                    <h4 className={`font-bold text-gray-900 dark:text-white line-clamp-1 text-sm ${task.status === TaskStatus.DONE ? 'line-through text-gray-500' : ''}`}>{task.title}</h4>
                     <div className="flex items-center gap-1.5 mt-0.5">
                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${getPriorityColor(task.priority)}`}>{task.priority}</span>
                          <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-[120px]">{task.project}</p>
@@ -545,7 +633,8 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
          ))}
       </div>
     </div>
-  );
+    );
+  };
 
   // Helper for Kanban Card
   const TaskCard: React.FC<{ task: Task; isSubtask?: boolean; }> = ({ task, isSubtask = false }) => {
@@ -556,8 +645,10 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
     return (
       <div 
         className={`${isSubtask ? 'ml-4 pl-2 mt-2 border-l-2 border-gray-200 dark:border-gray-600' : ''}`}
+        draggable={!isSubtask}
+        onDragStart={(e) => handleDragStart(e, task.id)}
       >
-        <div className={`bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all duration-200 group cursor-pointer relative overflow-hidden transform hover:-translate-y-0.5`}>
+        <div className={`bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all duration-200 group cursor-pointer relative overflow-hidden transform hover:-translate-y-0.5 ${draggedTaskId === task.id ? 'opacity-50' : ''}`}>
           {/* Priority Indicator Line */}
           <div className={`absolute left-0 top-0 bottom-0 w-1 ${task.priority === 'Высокий' ? 'bg-red-500' : task.priority === 'Средний' ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
           

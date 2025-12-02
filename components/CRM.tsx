@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Deal, DealStage, Company, Contact, CrmActivity, User, CrmUserSettings, CrmColumn } from '../types';
-import { Plus, LayoutGrid, List, Trash2, Building, Filter, Pencil, ArrowUpDown, Phone, Mail, User as UserIcon, Download, Upload, Settings, Eye, Check } from 'lucide-react';
+import { Plus, LayoutGrid, List, Trash2, Building, Filter, Pencil, ArrowUpDown, Phone, Mail, User as UserIcon, Download, Upload, Settings, Eye, Check, X } from 'lucide-react';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
 import Switch from './ui/Switch';
@@ -33,6 +33,7 @@ interface CRMProps {
 type CrmTab = 'DEALS' | 'COMPANIES' | 'PEOPLE' | 'ACTIVITIES';
 type ViewMode = 'KANBAN' | 'LIST';
 type SortConfig = { key: string, direction: 'asc' | 'desc' } | null;
+type DealDateFilter = 'ALL' | 'THIS_MONTH' | 'LAST_MONTH';
 
 const DEFAULT_SETTINGS: CrmUserSettings = {
     dealsColumns: [
@@ -68,6 +69,7 @@ const CRM: React.FC<CRMProps> = ({
   const [activeTab, setActiveTab] = useState<CrmTab>('DEALS');
   const [viewMode, setViewMode] = useState<ViewMode>('KANBAN');
   const [filterValue, setFilterValue] = useState<string>('ALL');
+  const [dealDateFilter, setDealDateFilter] = useState<DealDateFilter>('ALL');
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
   
   // Drag and Drop State
@@ -124,7 +126,23 @@ const CRM: React.FC<CRMProps> = ({
       });
   };
 
-  const filteredDeals = deals.filter(d => (d.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || (d.clientName || '').toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredDeals = deals.filter(d => {
+      const searchMatch = (d.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || (d.clientName || '').toLowerCase().includes(searchQuery.toLowerCase());
+      
+      let dateMatch = true;
+      if (dealDateFilter !== 'ALL') {
+          const dealDate = new Date(d.expectedClose);
+          const now = new Date();
+          if (dealDateFilter === 'THIS_MONTH') {
+              dateMatch = dealDate.getMonth() === now.getMonth() && dealDate.getFullYear() === now.getFullYear();
+          } else if (dealDateFilter === 'LAST_MONTH') {
+              const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+              dateMatch = dealDate.getMonth() === lastMonth.getMonth() && dealDate.getFullYear() === lastMonth.getFullYear();
+          }
+      }
+
+      return searchMatch && dateMatch;
+  });
   
   const filteredCompanies = sortData(companies.filter(c => {
     const matchesSearch = (c.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || (c.bin && c.bin.includes(searchQuery));
@@ -137,6 +155,30 @@ const CRM: React.FC<CRMProps> = ({
     const matchesFilter = filterValue === 'ALL' || c.organization === filterValue || companies.find(comp => comp.id === c.companyId)?.name === filterValue;
     return matchesSearch && matchesFilter;
   }));
+
+  // --- Auto-Log Interaction Logic ---
+  const handleInteraction = (type: 'Звонок' | 'Email', value: string, entity: any) => {
+      if (!value) return;
+      
+      const newActivity: CrmActivity = {
+          id: `act${Date.now()}`,
+          type: type,
+          subject: `${type}: ${entity.name || entity.title || 'Unknown'}`,
+          date: new Date().toISOString().split('T')[0],
+          status: 'На подтверждении' as any, 
+          relatedEntityId: entity.id
+      };
+      onAddActivity(newActivity);
+      alert(`Действие "${type}" зафиксировано. Статус: На подтверждении.`);
+  };
+
+  const handleConfirmActivity = (activity: CrmActivity) => {
+      onAddActivity({ ...activity, status: 'Выполнено' });
+  };
+
+  const handleChangeActivityStatus = (activity: CrmActivity, newStatus: string) => {
+      onAddActivity({ ...activity, status: newStatus as any });
+  };
 
   // --- Drag and Drop Handlers ---
   const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -525,21 +567,61 @@ const CRM: React.FC<CRMProps> = ({
                      if (col.key === 'title' || col.key === 'name' || col.key === 'subject') {
                          content = <span className="font-bold text-gray-900 dark:text-white">{val}</span>;
                      } else if (col.key === 'phone') {
-                         content = <a href={`tel:${val}`} onClick={e => e.stopPropagation()} className="text-primary-600 hover:underline">{val}</a>;
+                         // Only render clickable link, click handlers handled in detail view or just propagation stop
+                         content = <span className="text-gray-600">{val}</span>;
                      } else if (col.key === 'email') {
-                         content = <a href={`mailto:${val}`} onClick={e => e.stopPropagation()} className="text-primary-600 hover:underline">{val}</a>;
+                         content = <span className="text-gray-600">{val}</span>;
                      } else if (col.key === 'value') {
                          content = `₸${Number(val).toLocaleString()}`;
-                     } else if (col.key === 'stage' || col.key === 'status') {
-                         content = <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{val}</span>;
+                     } else if (col.key === 'stage') {
+                        content = <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2.5 py-0.5 rounded-full text-[10px] font-bold">{val}</span>
+                     } else if (col.key === 'status') {
+                         const isPending = val === 'На подтверждении';
+                         
+                         if (activeTab === 'ACTIVITIES') {
+                            content = (
+                                <div onClick={e => e.stopPropagation()}>
+                                    {isPending ? (
+                                        <div className="flex items-center gap-2">
+                                            <span className="bg-yellow-100 text-yellow-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold">{val}</span>
+                                            <div className="flex gap-1">
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleConfirmActivity(item); }}
+                                                    className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200" title="Подтвердить"
+                                                >
+                                                    <Check className="w-3 h-3" />
+                                                </button>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); onDeleteActivity && onDeleteActivity(item.id); }}
+                                                    className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200" title="Отклонить"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <select 
+                                            value={val}
+                                            onChange={(e) => handleChangeActivityStatus(item, e.target.value)}
+                                            className={`bg-transparent border-none text-xs font-bold outline-none cursor-pointer ${val === 'Выполнено' ? 'text-green-600' : 'text-blue-600'}`}
+                                        >
+                                            <option value="Запланировано">Запланировано</option>
+                                            <option value="Выполнено">Выполнено</option>
+                                        </select>
+                                    )}
+                                </div>
+                            );
+                         } else {
+                            content = <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2.5 py-0.5 rounded-full text-[10px] font-bold">{val}</span>
+                         }
                      } else if (col.key === 'address') {
                          content = getCityFromAddress(val);
                      }
 
-                     return <td key={col.key} className="px-4 py-4 whitespace-nowrap">{content}</td>;
+                     return <td key={col.key} className="px-4 py-2.5 whitespace-nowrap">{content}</td>;
                   })}
                   
-                  <td className="px-4 py-4 text-right flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+                  <td className="px-4 py-2.5 text-right flex justify-end gap-1" onClick={e => e.stopPropagation()}>
                     <button onClick={() => openModal(item)} className="p-1.5 text-gray-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
@@ -622,6 +704,22 @@ const CRM: React.FC<CRMProps> = ({
                             ? uniqueIndustries.map(ind => ({ value: ind, label: ind }))
                             : uniqueOrganizations.map(org => ({ value: org, label: org }))
                         )
+                    ]}
+                  />
+              </div>
+           )}
+
+            {/* Date Filter for Deals */}
+            {activeTab === 'DEALS' && (
+              <div className="relative min-w-[150px]">
+                  <Select 
+                    icon={<Filter className="w-4 h-4" />}
+                    value={dealDateFilter} 
+                    onChange={(e) => setDealDateFilter(e.target.value as DealDateFilter)}
+                    options={[
+                        { value: "ALL", label: "За все время" },
+                        { value: "THIS_MONTH", label: "Этот месяц" },
+                        { value: "LAST_MONTH", label: "Прошлый месяц" }
                     ]}
                   />
               </div>
@@ -955,7 +1053,7 @@ const CRM: React.FC<CRMProps> = ({
            <div className="flex gap-3 w-full">
              <Button variant="secondary" onClick={() => { setIsDetailModalOpen(false); openModal(selectedItem); }} className="flex-1">Редактировать</Button>
              {selectedItem?.phone && (
-                 <a href={`tel:${selectedItem.phone}`} className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-lg shadow-green-500/20 transition-all text-center flex items-center justify-center gap-2">
+                 <a href={`tel:${selectedItem.phone}`} onClick={e => handleInteraction('Звонок', selectedItem.phone, selectedItem)} className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-lg shadow-green-500/20 transition-all text-center flex items-center justify-center gap-2">
                      <Phone className="w-4 h-4"/> Позвонить
                  </a>
              )}
@@ -971,7 +1069,7 @@ const CRM: React.FC<CRMProps> = ({
                              return (
                                  <div key={key}>
                                      <span className="text-xs font-bold text-gray-900 dark:text-gray-300 uppercase block mb-1">{key === 'phone' ? 'Телефон' : '2-й Телефон'}</span>
-                                     <a href={`tel:${value}`} className="font-medium text-primary-600 hover:underline flex items-center gap-1"><Phone className="w-3 h-3"/> {String(value)}</a>
+                                     <a href={`tel:${value}`} onClick={e => { e.preventDefault(); handleInteraction('Звонок', String(value), selectedItem); }} className="font-medium text-primary-600 hover:underline flex items-center gap-1"><Phone className="w-3 h-3"/> {String(value)}</a>
                                  </div>
                              );
                           }
@@ -979,7 +1077,7 @@ const CRM: React.FC<CRMProps> = ({
                               return (
                                   <div key={key}>
                                       <span className="text-xs font-bold text-gray-900 dark:text-gray-300 uppercase block mb-1">{key === 'email' ? 'Почта' : '2-я Почта'}</span>
-                                      <a href={`mailto:${value}`} className="font-medium text-primary-600 hover:underline flex items-center gap-1"><Mail className="w-3 h-3"/> {String(value)}</a>
+                                      <a href={`mailto:${value}`} onClick={e => { e.preventDefault(); handleInteraction('Email', String(value), selectedItem); }} className="font-medium text-primary-600 hover:underline flex items-center gap-1"><Mail className="w-3 h-3"/> {String(value)}</a>
                                   </div>
                               );
                           }
@@ -1006,7 +1104,7 @@ const CRM: React.FC<CRMProps> = ({
                                            <div className="font-bold text-sm text-gray-900 dark:text-white">{c.name}</div>
                                            <div className="text-xs text-gray-500">{c.position}</div>
                                        </div>
-                                       <a href={`tel:${c.phone}`} className="p-2 bg-white dark:bg-gray-600 rounded-full shadow-sm text-primary-600"><Phone className="w-3 h-3"/></a>
+                                       <a href={`tel:${c.phone}`} onClick={e => { e.preventDefault(); handleInteraction('Звонок', c.phone, c); }} className="p-2 bg-white dark:bg-gray-600 rounded-full shadow-sm text-primary-600"><Phone className="w-3 h-3"/></a>
                                    </div>
                                ))}
                                {getLinkedContacts(selectedItem.id).length === 0 && <span className="text-sm text-gray-400">Нет связанных людей</span>}
