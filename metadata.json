@@ -1,5 +1,5 @@
 {
   "name": "Engineering Centre HUB",
-  "description": "A simplified Bitrix24-like ERP system for Engineering Centre, featuring CRM, Project Management, Knowledge Base, and Analytics.",
+  "description": "A simplified CRM system for Engineering Centre, featuring CRM, Project Management, Knowledge Base, and Analytics.",
   "requestFramePermissions": []
 }

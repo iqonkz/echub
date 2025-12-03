@@ -34,15 +34,20 @@ import {
 } from 'firebase/firestore';
 
 const App: React.FC = () => {
-  // Auth State
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authLoading, setAuthLoading] = useState(true);
+  // --- DEMO MODE CONFIGURATION ---
+  // Установите isAuthenticated = true и authLoading = false для обхода входа
+  const [isAuthenticated, setIsAuthenticated] = useState(true); 
+  const [authLoading, setAuthLoading] = useState(false);
+  
+  // Mock Admin User for Presentation
   const [currentUser, setCurrentUser] = useState<User>({
-      id: '', 
-      name: '', 
-      email: '', 
-      role: 'USER', 
-      avatar: '' 
+      id: 'demo_director', 
+      name: 'Александр Директор', 
+      email: 'ceo@engineering-centre.com', 
+      role: 'ADMIN', 
+      avatar: '',
+      position: 'Генеральный Директор',
+      company: 'Engineering Centre'
   });
   
   // App Settings State
@@ -135,8 +140,9 @@ const App: React.FC = () => {
            setCurrentUser(newUser);
         }
       } else {
-        setIsAuthenticated(false);
-        setCurrentUser({ id: '', name: '', email: '', role: 'USER', avatar: '' });
+        // DEMO MODE BYPASS: Commented out logout logic
+        // setIsAuthenticated(false);
+        // setCurrentUser({ id: '', name: '', email: '', role: 'USER', avatar: '' });
       }
       setAuthLoading(false);
     });
@@ -144,26 +150,26 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // 2. Data Syncing (Only when authenticated)
+  // 2. Data Syncing (Modified for Demo - attempt sync but don't block)
   useEffect(() => {
-      if (!isAuthenticated) return;
-
+      // In Demo mode without real auth, firestore rules might block access unless they are open.
+      // Assuming public read access for demo or existing session.
+      
       const unsubs = [
-          onSnapshot(collection(db, 'tasks'), (snap) => setTasks(snap.docs.map(d => ({id: d.id, ...d.data()} as Task)))),
-          onSnapshot(collection(db, 'projects'), (snap) => setProjects(snap.docs.map(d => ({id: d.id, ...d.data()} as Project)))),
-          onSnapshot(collection(db, 'deals'), (snap) => setDeals(snap.docs.map(d => ({id: d.id, ...d.data()} as Deal)))),
-          onSnapshot(collection(db, 'companies'), (snap) => setCompanies(snap.docs.map(d => ({id: d.id, ...d.data()} as Company)))),
-          onSnapshot(collection(db, 'contacts'), (snap) => setContacts(snap.docs.map(d => ({id: d.id, ...d.data()} as Contact)))),
-          onSnapshot(collection(db, 'activities'), (snap) => setActivities(snap.docs.map(d => ({id: d.id, ...d.data()} as CrmActivity)))),
-          onSnapshot(collection(db, 'documents'), (snap) => setDocs(snap.docs.map(d => ({id: d.id, ...d.data()} as DocumentItem)))),
-          onSnapshot(collection(db, 'articles'), (snap) => setArticles(snap.docs.map(d => ({id: d.id, ...d.data()} as Article)))),
-          onSnapshot(collection(db, 'team'), (snap) => setTeam(snap.docs.map(d => ({id: d.id, ...d.data()} as TeamMember)))),
-          onSnapshot(collection(db, 'trash'), (snap) => setTrashItems(snap.docs.map(d => ({id: d.id, ...d.data()} as DeletedItem)))),
-          // onSnapshot(query(collection(db, 'logs'), orderBy('timestamp', 'desc'), limit(50)), (snap) => setLogs(snap.docs.map(d => ({id: d.id, ...d.data()} as SystemLog))))
+          onSnapshot(collection(db, 'tasks'), (snap) => setTasks(snap.docs.map(d => ({id: d.id, ...d.data()} as Task))), (err) => console.log('Demo mode: Firestore offline')),
+          onSnapshot(collection(db, 'projects'), (snap) => setProjects(snap.docs.map(d => ({id: d.id, ...d.data()} as Project))), (err) => console.log('Demo mode: Firestore offline')),
+          onSnapshot(collection(db, 'deals'), (snap) => setDeals(snap.docs.map(d => ({id: d.id, ...d.data()} as Deal))), (err) => console.log('Demo mode: Firestore offline')),
+          onSnapshot(collection(db, 'companies'), (snap) => setCompanies(snap.docs.map(d => ({id: d.id, ...d.data()} as Company))), (err) => console.log('Demo mode: Firestore offline')),
+          onSnapshot(collection(db, 'contacts'), (snap) => setContacts(snap.docs.map(d => ({id: d.id, ...d.data()} as Contact))), (err) => console.log('Demo mode: Firestore offline')),
+          onSnapshot(collection(db, 'activities'), (snap) => setActivities(snap.docs.map(d => ({id: d.id, ...d.data()} as CrmActivity))), (err) => console.log('Demo mode: Firestore offline')),
+          onSnapshot(collection(db, 'documents'), (snap) => setDocs(snap.docs.map(d => ({id: d.id, ...d.data()} as DocumentItem))), (err) => console.log('Demo mode: Firestore offline')),
+          onSnapshot(collection(db, 'articles'), (snap) => setArticles(snap.docs.map(d => ({id: d.id, ...d.data()} as Article))), (err) => console.log('Demo mode: Firestore offline')),
+          onSnapshot(collection(db, 'team'), (snap) => setTeam(snap.docs.map(d => ({id: d.id, ...d.data()} as TeamMember))), (err) => console.log('Demo mode: Firestore offline')),
+          onSnapshot(collection(db, 'trash'), (snap) => setTrashItems(snap.docs.map(d => ({id: d.id, ...d.data()} as DeletedItem))), (err) => console.log('Demo mode: Firestore offline')),
       ];
 
       return () => unsubs.forEach(u => u());
-  }, [isAuthenticated]);
+  }, []); // Run once on mount for demo
 
   // 3. Dark Mode Effect
   useEffect(() => {
@@ -175,6 +181,11 @@ const App: React.FC = () => {
   }, [isDarkMode]);
 
   const handleLogout = async () => {
+    // For Demo: Just refresh the page or show alert
+    if (currentUser.id === 'demo_director') {
+        alert("Это демо-режим. Выход не требуется.");
+        return;
+    }
     try {
       await signOut(auth);
     } catch (error) {
@@ -282,6 +293,10 @@ const App: React.FC = () => {
   // Settings / Team
   const updateProfile = async (data: Partial<User>) => {
       if (currentUser.id) {
+          if (currentUser.id === 'demo_director') {
+              setCurrentUser(prev => ({...prev, ...data}));
+              return;
+          }
           await updateDoc(doc(db, 'users', currentUser.id), data);
           setCurrentUser(prev => ({...prev, ...data}));
       }
@@ -324,7 +339,8 @@ const App: React.FC = () => {
       );
   }
 
-  if (!isAuthenticated) {
+  // NOTE: Bypass Login component check
+  if (!isAuthenticated && !currentUser) {
       return <Login onLogin={() => {}} />;
   }
 
