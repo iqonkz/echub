@@ -1,4 +1,7 @@
 
+
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ModuleType, Task, Deal, DocumentItem, Article, SystemLog, TaskStatus, Company, Contact, CrmActivity, User, TeamMember, Project, AppPermissions, CrmUserSettings, DeletedItem } from './types';
 import Sidebar from './components/Sidebar';
@@ -417,7 +420,7 @@ const App: React.FC = () => {
                   <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-3 pl-2 pr-1 py-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-all border border-transparent hover:border-gray-200 dark:hover:border-gray-600">
                       <div className="text-right hidden sm:block">
                           <p className="text-sm font-bold text-gray-900 dark:text-white leading-none">{currentUser.name}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{currentUser.role === 'ADMIN' ? 'Admin' : 'User'}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{currentUser.position || (currentUser.role === 'ADMIN' ? 'Администратор' : 'Сотрудник')}</p>
                       </div>
                       <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-primary-500 flex items-center justify-center text-gray-900 font-bold shadow-md overflow-hidden">
                           {currentUser.avatar ? <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover"/> : currentUser.name.charAt(0)}
@@ -496,6 +499,10 @@ const App: React.FC = () => {
                 onDeleteActivity={deleteActivity}
                 searchQuery={searchQuery}
                 currentUser={currentUser}
+                // New props for task creation integration
+                onAddTask={addTask}
+                projects={projects}
+                team={team}
            />}
            {activeModule === ModuleType.CALENDAR && <Calendar 
                 tasks={tasks}

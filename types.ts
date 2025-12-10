@@ -19,10 +19,10 @@ export enum TaskStatus {
 
 export enum DealStage {
   NEW = 'Заявка',
-  ESTIMATION = 'Оценка',
   NEGOTIATION = 'Переговоры',
   CONTRACT = 'Договор',
   WON = 'Успешно',
+  LOST = 'Безуспешно',
 }
 
 export interface CrmColumn {
@@ -89,6 +89,9 @@ export interface Deal {
   stage: DealStage;
   contactId: string;
   expectedClose: string;
+  assignee?: string;      // New: Responsible person
+  projectId?: string;     // New: Linked Project Name
+  statusComment?: string; // New: Status comment
 }
 
 export interface Company {

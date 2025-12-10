@@ -1,7 +1,10 @@
 
+
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Task, TaskStatus, User, TeamMember, Project } from '../types';
-import { Clock, User as UserIcon, Flag, Plus, Trash2, ChevronDown, ChevronRight, Layers, X, Calendar, FolderOpen, ArrowLeft, Pencil, CheckCircle2, Eye, Lock, Globe, Settings2, Users, Check, ArrowUpDown } from 'lucide-react';
+import { Clock, User as UserIcon, Flag, Plus, Trash2, ChevronDown, ChevronRight, Layers, X, Calendar, FolderOpen, ArrowLeft, Pencil, CheckCircle2, Eye, Lock, Globe, Settings2, Users, Check, ArrowUpDown, Activity } from 'lucide-react';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
 import Switch from './ui/Switch';
@@ -70,9 +73,10 @@ const StatusSelect = ({ currentStatus, onChange }: { currentStatus: TaskStatus, 
         e.stopPropagation();
         if (!isOpen && dropdownRef.current) {
             const rect = dropdownRef.current.getBoundingClientRect();
+            // Use fixed positioning to escape overflow containers
             setPosition({
-                top: rect.bottom + window.scrollY,
-                left: rect.left + window.scrollX,
+                top: rect.bottom + 5,
+                left: rect.left,
                 width: 192 // w-48
             });
         }
@@ -94,10 +98,10 @@ const StatusSelect = ({ currentStatus, onChange }: { currentStatus: TaskStatus, 
     };
 
     return (
-      <div className="relative" ref={dropdownRef}>
+      <div className="relative inline-block" ref={dropdownRef}>
         <button
           onClick={toggleDropdown}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border shadow-sm hover:shadow-md ${statusColors[currentStatus]}`}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border shadow-sm hover:shadow-md whitespace-nowrap ${statusColors[currentStatus]}`}
         >
           <span className={`w-2 h-2 rounded-full shadow-sm ${dotColors[currentStatus]}`} />
           {currentStatus}
@@ -105,12 +109,12 @@ const StatusSelect = ({ currentStatus, onChange }: { currentStatus: TaskStatus, 
         </button>
         
         {isOpen && (
-          // Use fixed positioning to break out of table overflow
+          // Use fixed positioning portal-like strategy
           <div 
              className="fixed bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-[9999] overflow-hidden animate-fade-in ring-1 ring-black/5"
              style={{ 
-                 top: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().bottom + 5 : 0, 
-                 left: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().left : 0,
+                 top: position.top, 
+                 left: position.left,
                  width: '12rem'
              }}
           >
@@ -144,6 +148,10 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>('NAME');
   const [taskSortConfig, setTaskSortConfig] = useState<TaskSortConfig>(null);
   
+  // Sort Dropdown State
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -162,6 +170,17 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
   
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+
+  // Click outside for Sort Dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: any) => {
+        if (sortRef.current && !sortRef.current.contains(event.target)) {
+            setIsSortOpen(false);
+        }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // --- Access Control Logic ---
   const accessibleProjects = projects.filter(p => {
@@ -247,7 +266,8 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
   const openModal = (taskToEdit?: Task, parentId?: string, project?: string) => {
       if (taskToEdit) {
           setEditingTask(taskToEdit);
-          setNewTaskData(taskToEdit);
+          // Spread existing task data, ensuring status is included
+          setNewTaskData({ ...taskToEdit });
       } else {
           setEditingTask(null);
           // Calculate +3 working days default
@@ -260,6 +280,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
               observer: '',
               dueDate: defaultDate,
               priority: 'Средний',
+              status: TaskStatus.TODO,
               title: '',
               description: ''
           });
@@ -281,7 +302,8 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
       assignee: newTaskData.assignee || 'Админ',
       observer: newTaskData.observer,
       dueDate: newTaskData.dueDate || new Date().toISOString().split('T')[0],
-      status: editingTask ? editingTask.status : TaskStatus.TODO,
+      // Use status from form data (which defaults to editingTask.status or TODO)
+      status: (newTaskData.status as TaskStatus) || TaskStatus.TODO,
       priority: (newTaskData.priority as Task['priority']) || 'Средний',
       project: newTaskData.project || 'Общее',
       parentId: newTaskData.parentId
@@ -291,7 +313,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
         if (onUpdateTask) {
              onUpdateTask(task);
         } else {
-             // Fallback if onUpdateTask not provided (legacy behavior)
+             // Fallback
              onDeleteTask(task.id);
              onAddTask(task);
         }
@@ -358,7 +380,7 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
 
   // --- Sorting Logic for Projects ---
   const getProjectStats = (projectName: string) => {
-      const projectTasks = tasks.filter(t => t.project === projectName);
+      const projectTasks = tasks.filter(t => t.project === projectName && !t.parentId); // Count only root tasks
       return {
           count: projectTasks.length,
           // Find latest due date as activity proxy
@@ -389,7 +411,8 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
   const renderProjectGrid = () => (
     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 pb-24 md:pb-0 p-2">
       {sortedProjects.map((project) => {
-        const projectTasks = tasks.filter(t => t.project === project.name);
+        // Calculate based on root tasks only to avoid double counting subtasks
+        const projectTasks = tasks.filter(t => t.project === project.name && !t.parentId);
         const completed = projectTasks.filter(t => t.status === TaskStatus.DONE).length;
         const total = projectTasks.length;
         const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
@@ -449,21 +472,21 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
   );
 
   const renderKanban = () => (
-    <div className="flex gap-6 overflow-x-auto pb-24 md:pb-6 h-full px-1">
+    <div className="flex gap-4 overflow-x-auto pb-24 md:pb-6 h-full px-1">
         {statusColumns.map((status) => (
           <div 
             key={status} 
-            className="flex-none w-80 flex flex-col bg-gray-100/50 dark:bg-gray-800/30 rounded-2xl border border-gray-200/50 dark:border-gray-700/30 h-full transition-colors backdrop-blur-sm"
+            className="flex-none w-64 flex flex-col bg-gray-100/50 dark:bg-gray-800/30 rounded-2xl border border-gray-200/50 dark:border-gray-700/30 h-full transition-colors backdrop-blur-sm"
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, status)}
           >
-            <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-0 flex items-center justify-between sticky top-0 bg-gray-50/90 dark:bg-gray-800/90 z-10 p-4 rounded-t-2xl border-b border-gray-200 dark:border-gray-700 backdrop-blur-md">
+            <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-0 flex items-center justify-between sticky top-0 bg-gray-50/90 dark:bg-gray-800/90 z-10 p-3 rounded-t-2xl border-b border-gray-200 dark:border-gray-700 backdrop-blur-md text-sm">
               {status}
-              <span className="bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs px-2.5 py-1 rounded-full shadow-sm font-bold border border-gray-100 dark:border-gray-600">
+              <span className="bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] px-2 py-0.5 rounded-full shadow-sm font-bold border border-gray-100 dark:border-gray-600">
                 {filteredTasks.filter(t => t.status === status && !t.parentId).length}
               </span>
             </h3>
-            <div className="p-4 space-y-3 overflow-y-auto min-h-0 flex-1">
+            <div className="p-2 space-y-2 overflow-y-auto min-h-0 flex-1">
               {filteredTasks.filter(t => t.status === status && !t.parentId).map(task => (
                  <TaskCard key={task.id} task={task} />
               ))}
@@ -495,8 +518,8 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
         </td>
         <td className="px-6 py-2.5" onClick={(e) => e.stopPropagation()}>
             <StatusSelect 
-            currentStatus={task.status}
-            onChange={(s) => onUpdateTaskStatus(task.id, s)}
+              currentStatus={task.status}
+              onChange={(s) => onUpdateTaskStatus(task.id, s)}
             />
         </td>
         <td className="px-6 py-2.5 font-medium text-xs">{new Date(task.dueDate).toLocaleDateString()}</td>
@@ -648,14 +671,14 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
         draggable={!isSubtask}
         onDragStart={(e) => handleDragStart(e, task.id)}
       >
-        <div className={`bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all duration-200 group cursor-pointer relative overflow-hidden transform hover:-translate-y-0.5 ${draggedTaskId === task.id ? 'opacity-50' : ''}`}>
+        <div className={`bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all duration-200 group cursor-pointer relative overflow-hidden transform hover:-translate-y-0.5 ${draggedTaskId === task.id ? 'opacity-50' : ''}`}>
           {/* Priority Indicator Line */}
           <div className={`absolute left-0 top-0 bottom-0 w-1 ${task.priority === 'Высокий' ? 'bg-red-500' : task.priority === 'Средний' ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
           
           <div className="pl-2">
-            <div className="flex justify-between items-start mb-2">
+            <div className="flex justify-between items-start mb-1.5">
                 <div className="flex items-center gap-1">
-                    {task.status === TaskStatus.DONE && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                    {task.status === TaskStatus.DONE && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
                 </div>
                 {hasSubtasks && (
                     <button onClick={(e) => {e.stopPropagation(); toggleExpand(task.id)}} className="text-gray-400 hover:text-primary-600 p-1 hover:bg-gray-100 rounded">
@@ -665,29 +688,29 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
             </div>
             
             <h4 
-                className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-3 leading-snug hover:text-primary-600 transition-colors" 
+                className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-2 leading-snug hover:text-primary-600 transition-colors" 
                 onClick={() => openModal(task)}
             >
                 {task.title}
             </h4>
             
-            <div className="flex items-center justify-between mt-3">
+            <div className="flex items-center justify-between mt-2">
                 <div className="flex -space-x-2">
-                    <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-700 border-2 border-white dark:border-gray-800 flex items-center justify-center text-[9px] font-bold text-gray-500">
+                    <div className="w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-700 border-2 border-white dark:border-gray-800 flex items-center justify-center text-[9px] font-bold text-gray-500">
                         {(task.assignee || '?').charAt(0)}
                     </div>
                 </div>
-                <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md ${new Date(task.dueDate) < new Date() && task.status !== TaskStatus.DONE ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-500'}`}>
+                <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${new Date(task.dueDate) < new Date() && task.status !== TaskStatus.DONE ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-500'}`}>
                     <Clock className="w-3 h-3" />
                     {new Date(task.dueDate).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}
                 </div>
             </div>
 
-            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={(e) => {e.stopPropagation(); openModal(task);}} className="p-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-500 hover:text-primary-600">
+            <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={(e) => {e.stopPropagation(); openModal(task);}} className="p-1 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-500 hover:text-primary-600">
                     <Pencil className="w-3 h-3" />
                 </button>
-                <button onClick={(e) => {e.stopPropagation(); onDeleteTask(task.id);}} className="p-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-500 hover:text-red-600">
+                <button onClick={(e) => {e.stopPropagation(); onDeleteTask(task.id);}} className="p-1 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-500 hover:text-red-600">
                     <Trash2 className="w-3 h-3" />
                 </button>
             </div>
@@ -780,24 +803,38 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                   
                   {/* Desktop Sorting Dropdown */}
                   {!activeProject && mainTab === 'PROJECTS' && (
-                      <div className="relative group hidden md:block">
-                          <button className="flex items-center gap-1.5 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 shadow-sm transition-all h-[42px]">
+                      <div className="relative hidden md:block" ref={sortRef}>
+                          <button 
+                             onClick={() => setIsSortOpen(!isSortOpen)}
+                             className="flex items-center gap-1.5 px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 shadow-sm transition-all h-[42px]"
+                          >
                               <ArrowUpDown className="w-3.5 h-3.5" />
                               <span className="hidden md:inline">
                                   {sortCriteria === 'NAME' ? 'По имени' : sortCriteria === 'COUNT' ? 'По задачам' : 'По активности'}
                               </span>
                           </button>
-                          <div className="absolute left-0 top-full mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-20 hidden group-hover:block p-1 animate-fade-in">
-                              <button onClick={() => setSortCriteria('NAME')} className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg flex items-center justify-between ${sortCriteria === 'NAME' ? 'text-primary-600' : 'text-gray-600 dark:text-gray-400'}`}>
-                                  По имени {sortCriteria === 'NAME' && <Check className="w-3 h-3"/>}
-                              </button>
-                              <button onClick={() => setSortCriteria('COUNT')} className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg flex items-center justify-between ${sortCriteria === 'COUNT' ? 'text-primary-600' : 'text-gray-600 dark:text-gray-400'}`}>
-                                  По кол-ву задач {sortCriteria === 'COUNT' && <Check className="w-3 h-3"/>}
-                              </button>
-                              <button onClick={() => setSortCriteria('ACTIVITY')} className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg flex items-center justify-between ${sortCriteria === 'ACTIVITY' ? 'text-primary-600' : 'text-gray-600 dark:text-gray-400'}`}>
-                                  По активности {sortCriteria === 'ACTIVITY' && <Check className="w-3 h-3"/>}
-                              </button>
-                          </div>
+                          {isSortOpen && (
+                              <div className="absolute left-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-20 p-1 animate-fade-in">
+                                  <button 
+                                      onClick={() => { setSortCriteria('NAME'); setIsSortOpen(false); }} 
+                                      className={`w-full text-left px-3 py-2.5 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg flex items-center justify-between ${sortCriteria === 'NAME' ? 'text-primary-600 bg-primary-50 dark:bg-primary-900/10' : 'text-gray-600 dark:text-gray-400'}`}
+                                  >
+                                      По имени {sortCriteria === 'NAME' && <Check className="w-3.5 h-3.5 text-primary-500"/>}
+                                  </button>
+                                  <button 
+                                      onClick={() => { setSortCriteria('COUNT'); setIsSortOpen(false); }} 
+                                      className={`w-full text-left px-3 py-2.5 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg flex items-center justify-between ${sortCriteria === 'COUNT' ? 'text-primary-600 bg-primary-50 dark:bg-primary-900/10' : 'text-gray-600 dark:text-gray-400'}`}
+                                  >
+                                      По количеству задач {sortCriteria === 'COUNT' && <Check className="w-3.5 h-3.5 text-primary-500"/>}
+                                  </button>
+                                  <button 
+                                      onClick={() => { setSortCriteria('ACTIVITY'); setIsSortOpen(false); }} 
+                                      className={`w-full text-left px-3 py-2.5 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg flex items-center justify-between ${sortCriteria === 'ACTIVITY' ? 'text-primary-600 bg-primary-50 dark:bg-primary-900/10' : 'text-gray-600 dark:text-gray-400'}`}
+                                  >
+                                      По активности {sortCriteria === 'ACTIVITY' && <Check className="w-3.5 h-3.5 text-primary-500"/>}
+                                  </button>
+                              </div>
+                          )}
                       </div>
                   )}
                </div>
@@ -1002,17 +1039,34 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
                   />
               </div>
 
-              <div>
-                  <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-1.5">Проект</label>
-                  <div className="relative">
-                    <FolderOpen className="absolute left-3 top-3 w-4 h-4 text-gray-400"/>
-                    <select 
-                        className="w-full pl-10 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-white appearance-none cursor-pointer" 
-                        value={newTaskData.project || ''} 
-                        onChange={e => setNewTaskData({...newTaskData, project: e.target.value})} 
-                    >
-                        {accessibleProjects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                    </select>
+              <div className="grid grid-cols-2 gap-5">
+                  <div>
+                      <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-1.5">Проект</label>
+                      <div className="relative">
+                        <FolderOpen className="absolute left-3 top-3 w-4 h-4 text-gray-400"/>
+                        <select 
+                            className="w-full pl-10 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-white appearance-none cursor-pointer" 
+                            value={newTaskData.project || ''} 
+                            onChange={e => setNewTaskData({...newTaskData, project: e.target.value})} 
+                        >
+                            {accessibleProjects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                        </select>
+                      </div>
+                  </div>
+                  <div>
+                      <label className="block text-xs font-bold uppercase text-gray-900 dark:text-gray-300 mb-1.5">Статус</label>
+                      <div className="relative">
+                          <Activity className="absolute left-3 top-3 w-4 h-4 text-gray-400"/>
+                          <select 
+                             className="w-full pl-10 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all text-gray-900 dark:text-white appearance-none cursor-pointer"
+                             value={newTaskData.status || TaskStatus.TODO}
+                             onChange={e => setNewTaskData({...newTaskData, status: e.target.value as TaskStatus})}
+                          >
+                              {Object.values(TaskStatus).map(status => (
+                                  <option key={status} value={status}>{status}</option>
+                              ))}
+                          </select>
+                      </div>
                   </div>
               </div>
 

@@ -1,7 +1,10 @@
 
+
+
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Deal, DealStage, Company, Contact, CrmActivity, User, CrmUserSettings, CrmColumn } from '../types';
-import { Plus, LayoutGrid, List, Trash2, Building, Filter, Pencil, ArrowUpDown, Phone, Mail, User as UserIcon, Download, Upload, Settings, Eye, Check, X } from 'lucide-react';
+import { Deal, DealStage, Company, Contact, CrmActivity, User, CrmUserSettings, CrmColumn, Task, TaskStatus, Project, TeamMember } from '../types';
+import { Plus, LayoutGrid, List, Trash2, Building, Filter, Pencil, ArrowUpDown, Phone, Mail, User as UserIcon, Download, Upload, Settings, Eye, Check, X, CheckSquare, FolderOpen, Calendar, MessageSquare, Briefcase, Copy } from 'lucide-react';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
 import Switch from './ui/Switch';
@@ -28,6 +31,10 @@ interface CRMProps {
   searchQuery: string;
   currentUser?: User;
   onUpdateCrmSettings?: (settings: CrmUserSettings) => void;
+  // Props for task integration
+  onAddTask?: (task: Task) => void;
+  projects?: Project[];
+  team?: TeamMember[];
 }
 
 type CrmTab = 'DEALS' | 'COMPANIES' | 'PEOPLE' | 'ACTIVITIES';
@@ -40,7 +47,9 @@ const DEFAULT_SETTINGS: CrmUserSettings = {
         { key: 'title', label: 'Название', visible: true, order: 0 },
         { key: 'clientName', label: 'Клиент', visible: true, order: 1 },
         { key: 'value', label: 'Сумма', visible: true, order: 2 },
-        { key: 'stage', label: 'Статус', visible: true, order: 3 }
+        { key: 'stage', label: 'Статус', visible: true, order: 3 },
+        { key: 'assignee', label: 'Ответственный', visible: true, order: 4 },
+        { key: 'statusComment', label: 'Комментарий', visible: true, order: 5 }
     ],
     companiesColumns: [
         { key: 'name', label: 'Название', visible: true, order: 0 },
@@ -64,7 +73,8 @@ const CRM: React.FC<CRMProps> = ({
   onAddCompany, onUpdateCompany, onDeleteCompany,
   onAddContact, onUpdateContact, onDeleteContact,
   onAddActivity, onDeleteActivity,
-  searchQuery, currentUser, onUpdateCrmSettings
+  searchQuery, currentUser, onUpdateCrmSettings,
+  onAddTask, projects = [], team = []
 }) => {
   const [activeTab, setActiveTab] = useState<CrmTab>('DEALS');
   const [viewMode, setViewMode] = useState<ViewMode>('KANBAN');
@@ -91,6 +101,9 @@ const CRM: React.FC<CRMProps> = ({
 
   // Settings State
   const [currentSettings, setCurrentSettings] = useState<CrmUserSettings>(currentUser?.crmSettings || DEFAULT_SETTINGS);
+
+  // Toast Notification
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
      if (currentUser?.crmSettings) {
@@ -156,7 +169,7 @@ const CRM: React.FC<CRMProps> = ({
     return matchesSearch && matchesFilter;
   }));
 
-  // --- Auto-Log Interaction Logic ---
+  // --- Auto-Log Interaction Logic & Clipboard ---
   const handleInteraction = (type: 'Звонок' | 'Email', value: string, entity: any) => {
       if (!value) return;
       
@@ -169,7 +182,17 @@ const CRM: React.FC<CRMProps> = ({
           relatedEntityId: entity.id
       };
       onAddActivity(newActivity);
-      alert(`Действие "${type}" зафиксировано. Статус: На подтверждении.`);
+  };
+
+  const handleCopyAndInteract = (e: React.MouseEvent, type: 'Звонок' | 'Email', value: string, entity: any) => {
+      e.preventDefault();
+      // Copy to clipboard
+      navigator.clipboard.writeText(value);
+      // Log interaction
+      handleInteraction(type, value, entity);
+      // Notify user using Toast instead of alert
+      setToastMessage(`Скопировано: ${value}. Зафиксировано в делах.`);
+      setTimeout(() => setToastMessage(null), 3000);
   };
 
   const handleConfirmActivity = (activity: CrmActivity) => {
@@ -178,6 +201,23 @@ const CRM: React.FC<CRMProps> = ({
 
   const handleChangeActivityStatus = (activity: CrmActivity, newStatus: string) => {
       onAddActivity({ ...activity, status: newStatus as any });
+  };
+
+  const handleCreateTaskFromDeal = (deal: Deal) => {
+    if (!onAddTask) return;
+
+    const newTask: Task = {
+        id: `t_${Date.now()}`,
+        title: `Сделка: ${deal.title}`,
+        description: `Клиент: ${deal.clientName}\nКомментарий: ${deal.statusComment || ''}\nСумма: ${deal.value}`,
+        project: deal.projectId || 'Общее',
+        assignee: deal.assignee || 'Админ',
+        status: TaskStatus.TODO,
+        priority: 'Средний',
+        dueDate: deal.expectedClose
+    };
+    onAddTask(newTask);
+    alert('Задача успешно создана в проекте!');
   };
 
   // --- Drag and Drop Handlers ---
@@ -320,14 +360,17 @@ const CRM: React.FC<CRMProps> = ({
            }
        }
 
-       const dealData = {
+       const dealData: Deal = {
         id: isEdit ? id : `d${id}`,
         title: sanitize(formData.title) || 'Новая сделка',
         clientName: clientName,
         value: Number(formData.value) || 0,
         stage: isEdit ? formData.stage : DealStage.NEW,
         contactId: contactId,
-        expectedClose: sanitize(formData.expectedClose) || new Date().toISOString().split('T')[0]
+        expectedClose: sanitize(formData.expectedClose) || new Date().toISOString().split('T')[0],
+        assignee: sanitize(formData.assignee),
+        projectId: sanitize(formData.projectId),
+        statusComment: sanitize(formData.statusComment)
       };
       isEdit ? onUpdateDeal(dealData) : onAddDeal(dealData);
 
@@ -445,61 +488,88 @@ const CRM: React.FC<CRMProps> = ({
 
   // --- Render Methods ---
   const renderDealsKanban = () => (
-    <div className="flex gap-6 min-w-max h-full pb-6 px-1">
+    <div className="flex gap-4 min-w-max h-full pb-6 px-1">
       {Object.values(DealStage).map((stage) => (
         <div 
           key={stage} 
-          className="w-80 flex-shrink-0 flex flex-col bg-gray-100/50 dark:bg-gray-800/20 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 transition-colors"
+          className="w-64 flex-shrink-0 flex flex-col bg-gray-100/50 dark:bg-gray-800/20 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 transition-colors"
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, stage as DealStage)}
         >
-          <div className="p-4 border-b border-gray-200/50 dark:border-gray-700/50 flex justify-between items-center bg-gray-50/80 dark:bg-gray-800/80 rounded-t-2xl backdrop-blur-sm">
+          <div className={`p-3 border-b border-gray-200/50 dark:border-gray-700/50 flex justify-between items-center bg-gray-50/80 dark:bg-gray-800/80 rounded-t-2xl backdrop-blur-sm ${stage === DealStage.LOST ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}>
             <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-gray-700 shadow-sm ${stage === DealStage.WON ? 'bg-green-500' : 'bg-primary-500'}`} />
-                <h3 className="font-bold text-sm text-gray-700 dark:text-gray-200">{stage}</h3>
+                <span className={`w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-gray-700 shadow-sm ${stage === DealStage.WON ? 'bg-green-500' : stage === DealStage.LOST ? 'bg-red-500' : 'bg-primary-500'}`} />
+                <h3 className="font-bold text-xs text-gray-700 dark:text-gray-200">{stage}</h3>
             </div>
-            <span className="text-xs font-bold bg-white dark:bg-gray-700 px-2.5 py-1 rounded-full text-gray-500 dark:text-gray-400 shadow-sm">
+            <span className="text-[10px] font-bold bg-white dark:bg-gray-700 px-2 py-0.5 rounded-full text-gray-500 dark:text-gray-400 shadow-sm">
                 {filteredDeals.filter(d => d.stage === stage).length}
             </span>
           </div>
-          <div className="p-3 flex-1 overflow-y-auto space-y-3 scrollbar-thin">
+          <div className="p-2 flex-1 overflow-y-auto space-y-2 scrollbar-thin">
             {filteredDeals.filter(d => d.stage === stage).map(deal => (
               <div 
                 key={deal.id}
                 draggable={true}
                 onDragStart={(e) => handleDragStart(e, deal.id)}
-                className={`bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300 border border-gray-100 dark:border-gray-700/50 group relative cursor-grab active:cursor-grabbing transform hover:-translate-y-1 ${draggedDealId === deal.id ? 'opacity-50 border-primary-300 border-dashed' : ''}`}
+                className={`bg-white dark:bg-gray-800 p-3 rounded-xl shadow-[0_2px_10px_rgb(0,0,0,0.03)] hover:shadow-[0_4px_15px_rgb(0,0,0,0.05)] transition-all duration-300 border border-gray-100 dark:border-gray-700/50 group relative cursor-grab active:cursor-grabbing transform hover:-translate-y-0.5 ${draggedDealId === deal.id ? 'opacity-50 border-primary-300 border-dashed' : ''}`}
                 onClick={() => openDetailModal(deal)}
               >
-                <div className="flex justify-between items-start mb-3">
-                  <h4 className="font-bold text-gray-900 dark:text-white line-clamp-2 text-sm hover:text-primary-600 transition-colors">{deal.title}</h4>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex justify-between items-start mb-1">
+                  <h4 className="font-bold text-gray-900 dark:text-white line-clamp-2 text-sm hover:text-primary-600 transition-colors leading-tight">{deal.title}</h4>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-1 right-1 bg-white dark:bg-gray-800 shadow-sm rounded-lg p-0.5 z-10">
+                      <button onClick={(e) => {e.stopPropagation(); handleCreateTaskFromDeal(deal);}} className="p-1 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded" title="Создать задачу">
+                          <CheckSquare className="w-3 h-3" />
+                      </button>
                       <button onClick={(e) => {e.stopPropagation(); openModal(deal);}} className="p-1 text-gray-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded">
-                          <Pencil className="w-3.5 h-3.5" />
+                          <Pencil className="w-3 h-3" />
                       </button>
                       <button onClick={(e) => {e.stopPropagation(); onDeleteDeal(deal.id);}} className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded">
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3 h-3" />
                       </button>
                   </div>
                 </div>
-                <p className="text-xs text-primary-600 dark:text-primary-400 font-bold mb-3 flex items-center gap-1">
+                
+                <p className="text-[10px] text-primary-600 dark:text-primary-400 font-bold mb-1.5 flex items-center gap-1">
                    <Building className="w-3 h-3" />
                    {deal.clientName}
                 </p>
-                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-50 dark:border-gray-700/50">
+
+                {deal.assignee && (
+                    <div className="flex items-center gap-1.5 mb-1">
+                        <div className="w-3.5 h-3.5 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[8px] font-bold">
+                             {deal.assignee.charAt(0)}
+                        </div>
+                        <span className="text-[10px] text-gray-600 dark:text-gray-400 truncate">{deal.assignee}</span>
+                    </div>
+                )}
+                
+                {deal.projectId && (
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                        <FolderOpen className="w-3 h-3 text-gray-400" />
+                        <span className="text-[10px] text-gray-500 dark:text-gray-500 truncate max-w-full">{deal.projectId}</span>
+                    </div>
+                )}
+
+                {deal.statusComment && (
+                    <div className="mb-2 p-1.5 bg-gray-50 dark:bg-gray-900/50 rounded text-[10px] italic text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-gray-700 truncate">
+                        "{deal.statusComment}"
+                    </div>
+                )}
+
+                <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50 dark:border-gray-700/50">
                   <div className="flex flex-col">
-                     <span className="text-[10px] text-gray-400 uppercase font-bold">Бюджет</span>
-                     <span className="font-bold text-sm text-gray-800 dark:text-gray-200">₸{(deal.value).toLocaleString()}</span>
+                     <span className="text-[9px] text-gray-400 uppercase font-bold">Бюджет</span>
+                     <span className="font-bold text-xs text-gray-800 dark:text-gray-200">₸{(deal.value).toLocaleString()}</span>
                   </div>
                   <div className="flex flex-col items-end">
-                     <span className="text-[10px] text-gray-400 uppercase font-bold">Дата</span>
-                     <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{deal.expectedClose}</span>
+                     <span className="text-[9px] text-gray-400 uppercase font-bold">Срок</span>
+                     <span className="text-[10px] font-medium text-gray-600 dark:text-gray-400">{new Date(deal.expectedClose).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-          <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-b-2xl text-xs font-medium text-center text-gray-500 dark:text-gray-400">
+          <div className="p-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-b-2xl text-[10px] font-medium text-center text-gray-500 dark:text-gray-400">
             Итого: ₸{(filteredDeals.filter(d => d.stage === stage).reduce((sum, d) => sum + d.value, 0)).toLocaleString()}
           </div>
         </div>
@@ -574,7 +644,7 @@ const CRM: React.FC<CRMProps> = ({
                      } else if (col.key === 'value') {
                          content = `₸${Number(val).toLocaleString()}`;
                      } else if (col.key === 'stage') {
-                        content = <span className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2.5 py-0.5 rounded-full text-[10px] font-bold">{val}</span>
+                        content = <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${val === DealStage.LOST ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>{val}</span>
                      } else if (col.key === 'status') {
                          const isPending = val === 'На подтверждении';
                          
@@ -622,6 +692,11 @@ const CRM: React.FC<CRMProps> = ({
                   })}
                   
                   <td className="px-4 py-2.5 text-right flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+                    {activeTab === 'DEALS' && (
+                        <button onClick={() => handleCreateTaskFromDeal(item)} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100" title="Создать задачу">
+                           <CheckSquare className="w-3.5 h-3.5" />
+                        </button>
+                    )}
                     <button onClick={() => openModal(item)} className="p-1.5 text-gray-400 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
@@ -662,6 +737,18 @@ const CRM: React.FC<CRMProps> = ({
 
   return (
     <div className="h-[calc(100vh-80px)] md:h-[calc(100vh-140px)] flex flex-col">
+      {/* Toast Notification */}
+      {toastMessage && (
+          <div className="fixed bottom-6 right-6 z-50 animate-fade-in-up">
+              <div className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+                  <div className="bg-green-500 rounded-full p-1">
+                      <Check className="w-3 h-3 text-white" />
+                  </div>
+                  <span className="text-sm font-medium">{toastMessage}</span>
+              </div>
+          </div>
+      )}
+
       {/* Header Controls */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div className="flex gap-1 bg-white dark:bg-gray-800 p-1.5 rounded-2xl overflow-x-auto w-full md:w-auto no-scrollbar border border-gray-200 dark:border-gray-700 shadow-sm">
@@ -864,6 +951,57 @@ const CRM: React.FC<CRMProps> = ({
                     required 
                     icon={<span className="text-gray-500 font-bold">₸</span>}
                   />
+
+                  {/* New Fields: Assignee & Project & Comment */}
+                  <div className="grid grid-cols-2 gap-4">
+                      <Select 
+                          label="Ответственный"
+                          icon={<UserIcon className="w-3 h-3"/>}
+                          value={formData.assignee || ''} 
+                          onChange={e => setFormData({...formData, assignee: e.target.value})}
+                      >
+                          <option value="">Выберите...</option>
+                          {team.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                          {/* Add Current User as fallback if team empty */}
+                          {!team.length && currentUser && <option value={currentUser.name}>{currentUser.name}</option>}
+                      </Select>
+
+                      <Select 
+                          label="Проект"
+                          icon={<FolderOpen className="w-3 h-3"/>}
+                          value={formData.projectId || ''} 
+                          onChange={e => setFormData({...formData, projectId: e.target.value})}
+                      >
+                          <option value="">Общее</option>
+                          {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                      </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                     <Select 
+                        label="Этап"
+                        value={formData.stage || DealStage.NEW} 
+                        onChange={e => setFormData({...formData, stage: e.target.value})}
+                     >
+                        {Object.values(DealStage).map(s => <option key={s} value={s}>{s}</option>)}
+                     </Select>
+                     
+                     <Input 
+                        label="Дата закрытия"
+                        type="date"
+                        icon={<Calendar className="w-3 h-3"/>}
+                        value={formData.expectedClose || ''} 
+                        onChange={e => setFormData({...formData, expectedClose: e.target.value})} 
+                     />
+                  </div>
+
+                  <Textarea 
+                      label="Комментарий (Статус)"
+                      value={formData.statusComment || ''}
+                      onChange={e => setFormData({...formData, statusComment: e.target.value})}
+                      placeholder="Текущий статус, заметки..."
+                      rows={2}
+                  />
                 </>
               )}
               {activeTab === 'ACTIVITIES' && (
@@ -1051,9 +1189,14 @@ const CRM: React.FC<CRMProps> = ({
         title={selectedItem?.title || selectedItem?.name || selectedItem?.subject || 'Детали'}
         footer={
            <div className="flex gap-3 w-full">
+             {selectedItem && activeTab === 'DEALS' && (
+                 <Button variant="outline" onClick={() => { setIsDetailModalOpen(false); handleCreateTaskFromDeal(selectedItem); }} className="flex-1">
+                     Создать задачу
+                 </Button>
+             )}
              <Button variant="secondary" onClick={() => { setIsDetailModalOpen(false); openModal(selectedItem); }} className="flex-1">Редактировать</Button>
              {selectedItem?.phone && (
-                 <a href={`tel:${selectedItem.phone}`} onClick={e => handleInteraction('Звонок', selectedItem.phone, selectedItem)} className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-lg shadow-green-500/20 transition-all text-center flex items-center justify-center gap-2">
+                 <a href={`tel:${selectedItem.phone}`} onClick={e => handleCopyAndInteract(e, 'Звонок', selectedItem.phone, selectedItem)} className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold shadow-lg shadow-green-500/20 transition-all text-center flex items-center justify-center gap-2">
                      <Phone className="w-4 h-4"/> Позвонить
                  </a>
              )}
@@ -1069,7 +1212,10 @@ const CRM: React.FC<CRMProps> = ({
                              return (
                                  <div key={key}>
                                      <span className="text-xs font-bold text-gray-900 dark:text-gray-300 uppercase block mb-1">{key === 'phone' ? 'Телефон' : '2-й Телефон'}</span>
-                                     <a href={`tel:${value}`} onClick={e => { e.preventDefault(); handleInteraction('Звонок', String(value), selectedItem); }} className="font-medium text-primary-600 hover:underline flex items-center gap-1"><Phone className="w-3 h-3"/> {String(value)}</a>
+                                     <div className="flex items-center gap-2 group cursor-pointer" onClick={(e) => handleCopyAndInteract(e, 'Звонок', String(value), selectedItem)}>
+                                        <a href={`tel:${value}`} className="font-medium text-primary-600 hover:underline flex items-center gap-1"><Phone className="w-3 h-3"/> {String(value)}</a>
+                                        <Copy className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                     </div>
                                  </div>
                              );
                           }
@@ -1077,15 +1223,18 @@ const CRM: React.FC<CRMProps> = ({
                               return (
                                   <div key={key}>
                                       <span className="text-xs font-bold text-gray-900 dark:text-gray-300 uppercase block mb-1">{key === 'email' ? 'Почта' : '2-я Почта'}</span>
-                                      <a href={`mailto:${value}`} onClick={e => { e.preventDefault(); handleInteraction('Email', String(value), selectedItem); }} className="font-medium text-primary-600 hover:underline flex items-center gap-1"><Mail className="w-3 h-3"/> {String(value)}</a>
+                                      <div className="flex items-center gap-2 group cursor-pointer" onClick={(e) => handleCopyAndInteract(e, 'Email', String(value), selectedItem)}>
+                                        <a href={`mailto:${value}`} className="font-medium text-primary-600 hover:underline flex items-center gap-1"><Mail className="w-3 h-3"/> {String(value)}</a>
+                                        <Copy className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                      </div>
                                   </div>
                               );
                           }
                           // Friendly Labels
-                          const labelMap: any = { title: 'Название', clientName: 'Клиент', value: 'Сумма', stage: 'Статус', name: 'Имя', industry: 'Отрасль', address: 'Адрес', bin: 'БИН', website: 'Сайт', director: 'Руководитель', position: 'Должность', organization: 'Компания', subject: 'Тема', type: 'Тип', date: 'Дата', status: 'Статус', createdAt: 'Дата создания', lastContactDate: 'Последний контакт', expectedClose: 'Ожидаемое закрытие' };
+                          const labelMap: any = { title: 'Название', clientName: 'Клиент', value: 'Сумма', stage: 'Статус', name: 'Имя', industry: 'Отрасль', address: 'Адрес', bin: 'БИН', website: 'Сайт', director: 'Руководитель', position: 'Должность', organization: 'Компания', subject: 'Тема', type: 'Тип', date: 'Дата', status: 'Статус', createdAt: 'Дата создания', lastContactDate: 'Последний контакт', expectedClose: 'Ожидаемое закрытие', assignee: 'Ответственный', projectId: 'Проект', statusComment: 'Комментарий' };
                           
                           return (
-                              <div key={key} className="col-span-1">
+                              <div key={key} className={`col-span-1 ${key === 'statusComment' ? 'col-span-2' : ''}`}>
                                   <span className="text-xs font-bold text-gray-900 dark:text-gray-300 uppercase block mb-1">{labelMap[key] || key}</span>
                                   <span className="font-medium text-gray-900 dark:text-white">{key === 'value' ? `₸${Number(value).toLocaleString()}` : String(value)}</span>
                               </div>
@@ -1104,7 +1253,7 @@ const CRM: React.FC<CRMProps> = ({
                                            <div className="font-bold text-sm text-gray-900 dark:text-white">{c.name}</div>
                                            <div className="text-xs text-gray-500">{c.position}</div>
                                        </div>
-                                       <a href={`tel:${c.phone}`} onClick={e => { e.preventDefault(); handleInteraction('Звонок', c.phone, c); }} className="p-2 bg-white dark:bg-gray-600 rounded-full shadow-sm text-primary-600"><Phone className="w-3 h-3"/></a>
+                                       <a href={`tel:${c.phone}`} onClick={e => handleCopyAndInteract(e, 'Звонок', c.phone, c)} className="p-2 bg-white dark:bg-gray-600 rounded-full shadow-sm text-primary-600 active:scale-95 transition-transform"><Phone className="w-3 h-3"/></a>
                                    </div>
                                ))}
                                {getLinkedContacts(selectedItem.id).length === 0 && <span className="text-sm text-gray-400">Нет связанных людей</span>}

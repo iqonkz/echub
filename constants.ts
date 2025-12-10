@@ -1,4 +1,5 @@
 
+
 import { Task, TaskStatus, Deal, DealStage, DocumentItem, Article, SystemLog, Company, Contact, CrmActivity, TeamMember, Project, AppPermissions } from './types';
 
 // New: Permissions Matrix
@@ -98,9 +99,9 @@ export const INITIAL_CONTACTS: Contact[] = [
 ];
 
 export const INITIAL_DEALS: Deal[] = [
-  { id: 'd1', clientName: 'TechCorp Industries', title: 'Вентиляция нового штаба', value: 15000000, stage: DealStage.NEGOTIATION, contactId: 'ct1', expectedClose: '2023-12-15' },
-  { id: 'd2', clientName: 'Деп. Градостроительства', title: 'Реновация моста', value: 450000000, stage: DealStage.ESTIMATION, contactId: 'ct2', expectedClose: '2024-03-01' },
-  { id: 'd3', clientName: 'Green Energy Co', title: 'Изыскания под солнечную ферму', value: 7500000, stage: DealStage.WON, contactId: 'ct2', expectedClose: '2023-10-01' },
+  { id: 'd1', clientName: 'TechCorp Industries', title: 'Вентиляция нового штаба', value: 15000000, stage: DealStage.NEGOTIATION, contactId: 'ct1', expectedClose: '2023-12-15', assignee: 'Алексей М.', projectId: 'ТЦ Риверсайд', statusComment: 'Ждем согласования сметы' },
+  { id: 'd2', clientName: 'Деп. Градостроительства', title: 'Реновация моста', value: 450000000, stage: DealStage.CONTRACT, contactId: 'ct2', expectedClose: '2024-03-01', assignee: 'Светлана К.', projectId: 'Городской Мост', statusComment: 'Юристы проверяют договор' },
+  { id: 'd3', clientName: 'Green Energy Co', title: 'Изыскания под солнечную ферму', value: 7500000, stage: DealStage.WON, contactId: 'ct2', expectedClose: '2023-10-01', assignee: 'Иван Д.', projectId: 'Внутренние', statusComment: 'Успешно завершено' },
 ];
 
 export const INITIAL_ACTIVITIES: CrmActivity[] = [
