@@ -1,7 +1,5 @@
 
 
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ModuleType, Task, Deal, DocumentItem, Article, SystemLog, TaskStatus, Company, Contact, CrmActivity, User, TeamMember, Project, AppPermissions, CrmUserSettings, DeletedItem } from './types';
 import Sidebar from './components/Sidebar';
@@ -101,6 +99,7 @@ const App: React.FC = () => {
 
   // Helper to remove undefined fields before sending to Firestore
   const sanitizeForFirestore = (obj: any): any => {
+    if (obj === undefined) return null; // Convert top-level undefined to null
     if (typeof obj !== 'object' || obj === null) return obj;
     if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
     
@@ -506,10 +505,20 @@ const App: React.FC = () => {
            />}
            {activeModule === ModuleType.CALENDAR && <Calendar 
                 tasks={tasks}
-                onEditTask={(task) => {
-                    // Switch to tasks and open modal (simulated by passing prop or state management)
+                currentUser={currentUser}
+                onUpdateTask={updateTask}
+                onNavigateToTask={(taskId) => {
                     setActiveModule(ModuleType.TASKS);
-                    // In a real app, use a context or global state store to trigger the modal
+                    // In a real app we might scroll to task or filter by ID
+                }}
+                onEditTask={(task) => {
+                    setActiveModule(ModuleType.TASKS);
+                    // Use a timeout to allow the component to mount before triggering
+                    setTimeout(() => {
+                        if ((window as any).triggerTaskEdit) {
+                           (window as any).triggerTaskEdit(task);
+                        }
+                    }, 100);
                 }}
                 onAddActivity={addActivity}
            />}

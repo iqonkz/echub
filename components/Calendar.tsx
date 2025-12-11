@@ -1,23 +1,31 @@
 
+
 import React, { useState } from 'react';
-import { Task, TaskStatus, CrmActivity } from '../types';
-import { ChevronLeft, ChevronRight, Plus, CheckSquare, Zap, Settings2, Calendar as CalendarIcon, LayoutGrid } from 'lucide-react';
+import { Task, TaskStatus, CrmActivity, User } from '../types';
+import { ChevronLeft, ChevronRight, Plus, CheckSquare, Zap, Settings2, Calendar as CalendarIcon, LayoutGrid, Eye, Edit2, ArrowRightCircle, FolderOpen, Filter } from 'lucide-react';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
 
 interface CalendarProps {
   tasks: Task[];
+  currentUser?: User;
   onAddTask?: (task: Task) => void;
   onEditTask?: (task: Task) => void;
+  onUpdateTask?: (task: Task) => void;
   onAddActivity?: (activity: CrmActivity) => void;
+  onNavigateToTask?: (taskId: string) => void;
 }
 
-const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAddActivity }) => {
+const Calendar: React.FC<CalendarProps> = ({ tasks, currentUser, onAddTask, onEditTask, onUpdateTask, onAddActivity, onNavigateToTask }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'MONTH' | 'WEEK'>('MONTH');
   const [showWeekends, setShowWeekends] = useState(true); // Default to showing weekends
   const [popoverDate, setPopoverDate] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [viewFilter, setViewFilter] = useState<'ALL' | 'MINE'>('ALL');
+
+  // Detail Modal State
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   // New Activity Modal State
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
@@ -51,7 +59,7 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
               id: '', 
               title: '',
               description: '',
-              assignee: 'Админ',
+              assignee: currentUser?.name || 'Админ',
               dueDate: dateStr,
               status: TaskStatus.TODO,
               priority: 'Средний',
@@ -84,6 +92,27 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
       setIsActivityModalOpen(false);
   };
 
+  // --- Drag and Drop Handlers ---
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+      e.dataTransfer.setData('taskId', taskId);
+      e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+      e.preventDefault(); // Necessary to allow dropping
+  };
+
+  const handleDrop = (e: React.DragEvent, dateStr: string) => {
+      e.preventDefault();
+      const taskId = e.dataTransfer.getData('taskId');
+      if (taskId && onUpdateTask) {
+          const task = tasks.find(t => t.id === taskId);
+          if (task && task.dueDate !== dateStr) {
+              onUpdateTask({ ...task, dueDate: dateStr });
+          }
+      }
+  };
+
   // --- Logic for Month View ---
   const getMonthDays = (date: Date) => {
     const year = date.getFullYear();
@@ -108,7 +137,8 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
       // Find Monday of the current week
       const day = date.getDay();
       const diff = date.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-      const monday = new Date(date.setDate(diff));
+      const monday = new Date(date);
+      monday.setDate(diff);
 
       const days = [];
       for (let i = 0; i < 7; i++) {
@@ -143,16 +173,26 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
 
     const date: Date = cell.date;
     const dateStr = toLocalISOString(date);
-    const dayTasks = tasks.filter(t => t.dueDate === dateStr && t.status !== TaskStatus.DONE);
+    
+    // Filter tasks for the specific day
+    // Show all tasks including DONE (but styled differently)
+    const dayTasks = tasks.filter(t => {
+        const isDateMatch = t.dueDate === dateStr;
+        const isUserMatch = viewFilter === 'ALL' || (currentUser && t.assignee === currentUser.name);
+        return isDateMatch && isUserMatch;
+    });
+
     const isToday = toLocalISOString(new Date()) === dateStr;
     const isWeekView = viewMode === 'WEEK';
 
     return (
       <div 
         key={cell.key} 
+        onDragOver={handleDragOver}
+        onDrop={(e) => handleDrop(e, dateStr)}
         className={`bg-white/50 dark:bg-gray-800/50 p-1 md:p-2 border border-gray-100 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-700 transition-all group relative backdrop-blur-sm ${isWeekView ? 'min-h-[500px]' : 'min-h-[120px]'}`}
       >
-        <div className="flex justify-between items-start mb-1 md:mb-2">
+        <div className="flex justify-between items-start mb-1 md:mb-2 pointer-events-none">
            <div className={`flex flex-col items-center justify-center rounded-lg w-8 h-8 md:w-auto md:h-auto md:px-2 md:py-1 ${
              isToday ? 'bg-primary-500 text-gray-900 shadow-md' : 'text-gray-700 dark:text-gray-300'
            }`}>
@@ -162,18 +202,25 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
         </div>
         
         <div className="space-y-1">
-           {dayTasks.map(task => (
-             <div 
-                key={task.id} 
-                onClick={(e) => { e.stopPropagation(); onEditTask && onEditTask(task); }}
-                className={`text-[8px] md:text-[10px] px-1 md:px-2 py-1.5 rounded-lg border truncate cursor-pointer font-medium shadow-sm transition-transform hover:-translate-y-0.5 ${
-                task.priority === 'Высокий' 
-                ? 'bg-red-50 border-red-100 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200' 
-                : 'bg-white border-gray-200 text-gray-700 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200'
-             }`}>
-                {task.title}
-             </div>
-           ))}
+           {dayTasks.map(task => {
+             const isDone = task.status === TaskStatus.DONE;
+             return (
+                 <div 
+                    key={task.id} 
+                    draggable="true"
+                    onDragStart={(e) => handleDragStart(e, task.id)}
+                    onClick={(e) => { e.stopPropagation(); setSelectedTask(task); }}
+                    className={`text-[8px] md:text-[10px] px-1 md:px-2 py-1.5 rounded-lg border truncate cursor-pointer font-medium shadow-sm transition-transform hover:-translate-y-0.5 select-none ${
+                    isDone 
+                        ? 'bg-gray-100 border-gray-200 text-gray-400 dark:bg-gray-800/50 dark:border-gray-700 dark:text-gray-500 line-through opacity-70' 
+                        : task.priority === 'Высокий' 
+                        ? 'bg-red-50 border-red-100 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200' 
+                        : 'bg-white border-gray-200 text-gray-700 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200'
+                 }`}>
+                    {task.title}
+                 </div>
+             )
+           })}
         </div>
 
         {/* Hover Add Button */}
@@ -236,7 +283,13 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
                     
                     {isSettingsOpen && (
                         <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-30 p-3 animate-fade-in">
-                            <h4 className="text-xs font-bold uppercase text-gray-500 mb-2 px-1">Рабочие дни</h4>
+                            <h4 className="text-xs font-bold uppercase text-gray-500 mb-2 px-1">Фильтры</h4>
+                            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 mb-3">
+                                <button onClick={() => setViewFilter('ALL')} className={`flex-1 text-xs font-bold py-1.5 rounded-md ${viewFilter === 'ALL' ? 'bg-white dark:bg-gray-600 shadow text-primary-600 dark:text-white' : 'text-gray-500'}`}>Все</button>
+                                <button onClick={() => setViewFilter('MINE')} className={`flex-1 text-xs font-bold py-1.5 rounded-md ${viewFilter === 'MINE' ? 'bg-white dark:bg-gray-600 shadow text-primary-600 dark:text-white' : 'text-gray-500'}`}>Мои</button>
+                            </div>
+
+                            <h4 className="text-xs font-bold uppercase text-gray-500 mb-2 px-1">Вид</h4>
                             <label className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg cursor-pointer">
                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Показывать выходные</span>
                                 <input 
@@ -268,6 +321,99 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, onAddTask, onEditTask, onAdd
              {visibleCells.map(cell => renderCell(cell))}
          </div>
       </div>
+
+      {/* Detail Task Modal */}
+      <Modal
+        isOpen={!!selectedTask}
+        onClose={() => setSelectedTask(null)}
+        title={selectedTask?.title || 'Детали задачи'}
+        footer={
+           <div className="flex gap-2 w-full">
+               <Button 
+                   variant="secondary" 
+                   onClick={() => {
+                        if (selectedTask && onEditTask) {
+                            onEditTask(selectedTask); 
+                            setSelectedTask(null);
+                        }
+                   }}
+                   className="flex-1"
+                   icon={<Edit2 className="w-4 h-4"/>}
+               >
+                   Редактировать
+               </Button>
+               <Button 
+                   onClick={() => {
+                       if (selectedTask && onNavigateToTask) {
+                           onNavigateToTask(selectedTask.id);
+                           setSelectedTask(null);
+                       }
+                   }}
+                   className="flex-1"
+                   icon={<ArrowRightCircle className="w-4 h-4"/>}
+               >
+                   Перейти к задаче
+               </Button>
+           </div>
+        }
+      >
+          {selectedTask && (
+              <div className="space-y-4">
+                  <div>
+                      <h4 className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Описание</h4>
+                      <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-700 text-sm text-gray-800 dark:text-gray-200 min-h-[60px]">
+                          {selectedTask.description || <span className="text-gray-400 italic">Нет описания</span>}
+                      </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <h4 className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Проект</h4>
+                          <div className="flex items-center gap-2 p-2 rounded-lg border border-gray-100 dark:border-gray-700/50">
+                              <FolderOpen className="w-4 h-4 text-blue-500" />
+                              <span className="text-sm font-medium dark:text-white">{selectedTask.project}</span>
+                          </div>
+                      </div>
+                      <div>
+                          <h4 className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Статус</h4>
+                          <span className={`inline-block px-3 py-1.5 rounded-lg text-xs font-bold ${
+                              selectedTask.status === TaskStatus.DONE 
+                              ? 'bg-green-100 text-green-700' 
+                              : selectedTask.status === TaskStatus.IN_PROGRESS 
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}>
+                              {selectedTask.status}
+                          </span>
+                      </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <h4 className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Приоритет</h4>
+                          <span className={`inline-block px-3 py-1.5 rounded-lg text-xs font-bold ${
+                              selectedTask.priority === 'Высокий' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+                          }`}>
+                              {selectedTask.priority}
+                          </span>
+                      </div>
+                      <div>
+                          <h4 className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">Исполнитель</h4>
+                          <div className="flex items-center gap-2">
+                             <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold">
+                                 {selectedTask.assignee?.charAt(0)}
+                             </div>
+                             <span className="text-sm font-medium dark:text-white">{selectedTask.assignee}</span>
+                          </div>
+                      </div>
+                  </div>
+                  
+                  <div className="pt-2 text-xs text-gray-400 text-center">
+                      Срок выполнения: {new Date(selectedTask.dueDate).toLocaleDateString()}
+                  </div>
+              </div>
+          )}
+      </Modal>
 
       {/* Activity Modal */}
       <Modal
