@@ -2,6 +2,10 @@
 
 
 
+
+
+
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Task, TaskStatus, User, TeamMember, Project } from '../types';
 import { Clock, User as UserIcon, Flag, Plus, Trash2, ChevronDown, ChevronRight, Layers, X, Calendar, FolderOpen, ArrowLeft, Pencil, CheckCircle2, Eye, Lock, Globe, Settings2, Users, Check, ArrowUpDown, Activity } from 'lucide-react';
@@ -23,6 +27,8 @@ interface TasksProps {
   openEditTask?: (task: Task) => void;
   team: TeamMember[];
   initialTab?: 'PROJECTS' | 'TASKS';
+  initialTaskId?: string | null;
+  onTaskOpened?: () => void;
 }
 
 type MainTab = 'PROJECTS' | 'TASKS';
@@ -138,7 +144,7 @@ const StatusSelect = ({ currentStatus, onChange }: { currentStatus: TaskStatus, 
     );
   };
 
-const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAddTask, onUpdateTask, onDeleteTask, onAddProject, onUpdateProject, searchQuery, currentUser, openEditTask, team, initialTab = 'PROJECTS' }) => {
+const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAddTask, onUpdateTask, onDeleteTask, onAddProject, onUpdateProject, searchQuery, currentUser, openEditTask, team, initialTab = 'PROJECTS', initialTaskId, onTaskOpened }) => {
   const statusColumns = Object.values(TaskStatus);
   
   const [mainTab, setMainTab] = useState<MainTab>(initialTab);
@@ -170,6 +176,21 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
   
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+
+  // Auto-open task if initialTaskId is provided
+  useEffect(() => {
+      if (initialTaskId) {
+          const taskToOpen = tasks.find(t => t.id === initialTaskId);
+          if (taskToOpen) {
+              setMainTab('TASKS');
+              setEditingTask(taskToOpen);
+              setNewTaskData({ ...taskToOpen });
+              setIsModalOpen(true);
+              // Notify parent that we opened it so it can clear the ID
+              if (onTaskOpened) onTaskOpened();
+          }
+      }
+  }, [initialTaskId, tasks, onTaskOpened]);
 
   // Click outside for Sort Dropdown
   useEffect(() => {
@@ -863,10 +884,12 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onUpdateTaskStatus, onAd
 
          {/* Subtabs for Tasks */}
          {(mainTab === 'TASKS' || activeProject) && (
-            <div className="flex gap-6 border-b border-gray-200 dark:border-gray-700 mb-4 px-1 overflow-x-auto no-scrollbar">
-                <button onClick={() => {setTaskFilterTab('ALL'); setViewMode('LIST')}} className={`pb-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${taskFilterTab === 'ALL' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Все задачи</button>
-                <button onClick={() => {setTaskFilterTab('STATUS'); setViewMode('KANBAN')}} className={`pb-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${taskFilterTab === 'STATUS' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>По статусу</button>
-                <button onClick={() => {setTaskFilterTab('MINE'); setViewMode('LIST')}} className={`pb-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${taskFilterTab === 'MINE' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Назначено мне</button>
+            <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 mb-4 px-1 overflow-x-auto no-scrollbar py-2">
+                <div className="flex bg-white dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <button onClick={() => {setTaskFilterTab('ALL'); setViewMode('LIST')}} className={`px-4 py-2 text-xs md:text-sm font-bold rounded-lg transition-all ${taskFilterTab === 'ALL' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Все задачи</button>
+                    <button onClick={() => {setTaskFilterTab('STATUS'); setViewMode('KANBAN')}} className={`px-4 py-2 text-xs md:text-sm font-bold rounded-lg transition-all ${taskFilterTab === 'STATUS' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>По статусу</button>
+                    <button onClick={() => {setTaskFilterTab('MINE'); setViewMode('LIST')}} className={`px-4 py-2 text-xs md:text-sm font-bold rounded-lg transition-all ${taskFilterTab === 'MINE' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}>Назначено мне</button>
+                </div>
             </div>
          )}
       </div>

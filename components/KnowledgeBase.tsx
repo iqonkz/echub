@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Article } from '../types';
 import { BookOpen, ChevronRight, Plus, Trash2, MoreVertical, Pencil, Search, Bold, Italic, List, Heading, Link as LinkIcon, Image as ImageIcon, Table, Code, Quote, ListOrdered, CheckSquare, Strikethrough, Eye, Edit3, X } from 'lucide-react';
@@ -189,8 +191,6 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, onDeleteArti
         .replace(/^---$/gm, '<hr class="my-6 border-gray-200 dark:border-gray-700" />');
         
       // Tables (Basic support for | col | col | syntax)
-      // This is a simplified regex approach. It finds lines starting with | and ending with |
-      // We group them to wrap in <table>
       const lines = html.split('\n');
       let inTable = false;
       let tableHtml = '';
@@ -206,14 +206,10 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, onDeleteArti
               
               const cols = line.split('|').filter((c: string) => c.trim() !== ''); // Basic split
               
-              // Check if it's the separator row |---|---|
               if (line.includes('---')) {
-                  // Skip strictly rendering this, maybe use it to close thead?
                   continue; 
               }
 
-              const isHeader = i > 0 && lines[i-1].trim().startsWith('|') && !lines[i-1].includes('---') && (lines[i+1]?.includes('---'));
-              // Simplified detection: First row of a table block is usually header in MD if followed by separator
               const reallyHeader = tableHtml.endsWith('<table class="w-full text-sm text-left">');
 
               tableHtml += reallyHeader ? '<thead class="bg-gray-50 dark:bg-gray-800 text-xs uppercase font-bold text-gray-500 dark:text-gray-400"><tr>' : '<tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">';
@@ -242,10 +238,16 @@ const KnowledgeBase: React.FC<KBProps> = ({ articles, onAddArticle, onDeleteArti
       }
       
       // Reassemble
-      html = processedLines.join('<br/>'); // Preserve line breaks for non-special blocks
+      html = processedLines.join('<br/>');
 
-      // Clean up multiple <br/> around block elements
+      // Clean up multiple <br/> around block elements and specifically FIX LISTS
       html = html.replace(/(<br\/>\s*){2,}/g, '<br/>');
+      
+      // FIX: Remove <br/> created by join if it falls between list items
+      html = html.replace(/<\/li><br\/><li/g, '</li><li');
+      // Fix potential break after ul close/start (though not wrapping in ul here, browser handles loose li, but let's be cleaner if we added ul)
+      // Since we are using loose <li>, the <br> is what causes the double spacing.
+      // Removing <br> between </li> and <li> solves the list spacing.
 
       return <div dangerouslySetInnerHTML={{__html: html}} className="markdown-body" />;
   };

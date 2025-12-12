@@ -1,5 +1,9 @@
 
 
+
+
+
+
 import React, { useState } from 'react';
 import { Task, TaskStatus, CrmActivity, User } from '../types';
 import { ChevronLeft, ChevronRight, Plus, CheckSquare, Zap, Settings2, Calendar as CalendarIcon, LayoutGrid, Eye, Edit2, ArrowRightCircle, FolderOpen, Filter } from 'lucide-react';
@@ -175,8 +179,12 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, currentUser, onAddTask, onEd
     const dateStr = toLocalISOString(date);
     
     // Filter tasks for the specific day
-    // Show all tasks including DONE (but styled differently)
+    // Ensure task exists (t && t.id) and check for orphan subtasks
     const dayTasks = tasks.filter(t => {
+        if (!t || !t.id) return false;
+        // Check if parent exists (if parentId is present)
+        if (t.parentId && !tasks.some(p => p.id === t.parentId)) return false;
+        
         const isDateMatch = t.dueDate === dateStr;
         const isUserMatch = viewFilter === 'ALL' || (currentUser && t.assignee === currentUser.name);
         return isDateMatch && isUserMatch;
@@ -264,10 +272,10 @@ const Calendar: React.FC<CalendarProps> = ({ tasks, currentUser, onAddTask, onEd
              {/* View Controls */}
              <div className="flex items-center gap-2">
                  <div className="flex bg-white dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                    <button onClick={() => setViewMode('MONTH')} className={`p-2 rounded-lg transition-all ${viewMode === 'MONTH' ? 'bg-primary-50 dark:bg-gray-700 text-primary-600 dark:text-white shadow-sm font-bold' : 'text-gray-500 hover:text-gray-700'}`} title="Месяц">
+                    <button onClick={() => setViewMode('MONTH')} className={`p-2 rounded-lg transition-all ${viewMode === 'MONTH' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md font-bold' : 'text-gray-500 hover:text-gray-700'}`} title="Месяц">
                        <CalendarIcon className="w-4 h-4" />
                     </button>
-                    <button onClick={() => setViewMode('WEEK')} className={`p-2 rounded-lg transition-all ${viewMode === 'WEEK' ? 'bg-primary-50 dark:bg-gray-700 text-primary-600 dark:text-white shadow-sm font-bold' : 'text-gray-500 hover:text-gray-700'}`} title="Неделя">
+                    <button onClick={() => setViewMode('WEEK')} className={`p-2 rounded-lg transition-all ${viewMode === 'WEEK' ? 'bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white dark:to-gray-100 text-white dark:text-gray-900 shadow-md font-bold' : 'text-gray-500 hover:text-gray-700'}`} title="Неделя">
                        <LayoutGrid className="w-4 h-4" />
                     </button>
                  </div>

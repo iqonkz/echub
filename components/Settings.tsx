@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useRef } from 'react';
 import { User, Bell, Lock, Moon, Sun, LogOut, Activity, Smartphone, Type, Monitor, Send, Save, Users, Plus, Edit, Trash2, X, Laptop, Shield, Key, ArchiveRestore, RefreshCcw, FileText, Check, Upload, Eye } from 'lucide-react';
 import { SystemLog, ModuleType, User as UserType, TeamMember, AppRole, PermissionAction, AppPermissions, DeletedItem } from '../types';
@@ -310,29 +312,6 @@ const Settings: React.FC<SettingsProps> = ({
                               </div>
                           </div>
                           <Switch checked={isDarkMode} onChange={toggleTheme} />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                           <div className="flex items-center gap-3">
-                              <div className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                                  <Type className="w-6 h-6" />
-                              </div>
-                              <div>
-                                  <p className="font-bold text-gray-900 dark:text-white">Размер шрифта</p>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">Глобальный размер текста</p>
-                              </div>
-                           </div>
-                           <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                               {(['small', 'medium', 'large'] as const).map(size => (
-                                   <button 
-                                      key={size}
-                                      onClick={() => onUpdateAppSettings({fontSize: size})}
-                                      className={`px-3 py-1 text-xs font-bold rounded-md capitalize transition-all ${appSettings.fontSize === size ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-white' : 'text-gray-500'}`}
-                                   >
-                                       {size}
-                                   </button>
-                               ))}
-                           </div>
                       </div>
 
                       <div className="flex items-center justify-between">

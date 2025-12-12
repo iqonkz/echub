@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ModuleType, Task, Deal, DocumentItem, Article, SystemLog, TaskStatus, Company, Contact, CrmActivity, User, TeamMember, Project, AppPermissions, CrmUserSettings, DeletedItem } from './types';
 import Sidebar from './components/Sidebar';
@@ -12,6 +11,7 @@ import KnowledgeBase from './components/KnowledgeBase';
 import Settings from './components/Settings';
 import Login from './components/Login';
 import MobileNav from './components/MobileNav';
+import NotificationsPopover from './components/NotificationsPopover';
 import { Search, Sun, Moon, User as UserIcon, Settings as SettingsIcon, LogOut, RefreshCw, Loader2, X, AlertTriangle } from 'lucide-react';
 import { INITIAL_PERMISSIONS, INITIAL_PROJECTS } from './constants';
 import Modal from './components/ui/Modal';
@@ -58,6 +58,9 @@ const App: React.FC = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false); // Mobile search state
+
+  // Deep Linking State for Tasks
+  const [taskToOpen, setTaskToOpen] = useState<string | null>(null);
 
   // Mobile Config State
   const [mobileMenuConfig, setMobileMenuConfig] = useState<ModuleType[]>([
@@ -182,6 +185,12 @@ const App: React.FC = () => {
     } catch (error) {
       console.error("Error signing out: ", error);
     }
+  };
+
+  // --- Navigation Handlers ---
+  const handleOpenTask = (taskId: string) => {
+      setActiveModule(ModuleType.TASKS);
+      setTaskToOpen(taskId);
   };
 
   // --- CRUD Operations Handlers ---
@@ -320,7 +329,7 @@ const App: React.FC = () => {
 
   if (authLoading) {
       return (
-          <div className="h-screen w-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+          <div className="h-screen w-full flex items-center justify-center bg-gray-100 dark:bg-gray-900">
               <Loader2 className="w-10 h-10 animate-spin text-primary-500" />
           </div>
       );
@@ -331,7 +340,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={`flex min-h-screen transition-colors duration-300 ${isDarkMode ? 'dark bg-gray-900' : 'bg-gray-50'} font-${appSettings.fontFamily} text-${appSettings.fontSize}`}>
+    <div className={`flex min-h-screen transition-colors duration-300 ${isDarkMode ? 'dark bg-gray-900' : 'bg-gray-100'} font-${appSettings.fontFamily} text-${appSettings.fontSize}`}>
       
       {/* Desktop Sidebar */}
       <Sidebar 
@@ -343,13 +352,16 @@ const App: React.FC = () => {
       />
 
       {/* Main Content */}
-      <main className={`flex-1 transition-all duration-300 flex flex-col h-screen overflow-hidden ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'} relative`}>
+      <main 
+        className={`flex-1 transition-all duration-300 flex flex-col h-screen overflow-hidden relative 
+        ${isSidebarCollapsed ? 'md:ml-[96px]' : 'md:ml-[240px]'}`}
+      >
         
-        {/* Header */}
-        <header className="h-16 md:h-20 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 md:px-6 z-10 sticky top-0">
+        {/* Header - Floating Card Style */}
+        <header className="h-16 md:h-20 bg-gradient-to-r from-white/90 to-gray-50/90 dark:from-gray-800/90 dark:to-gray-900/90 backdrop-blur-[5px] flex items-center justify-between px-4 md:px-6 z-40 sticky top-0 md:top-2 md:mx-2 md:rounded-2xl md:shadow-sm md:border border-gray-200 dark:border-gray-700 transition-all">
            
            {/* Left / Center - Logo or Search Field */}
-           <div className={`flex-1 flex items-center ${isSearchActive ? 'absolute inset-0 bg-white dark:bg-gray-800 px-4 z-20 md:static md:bg-transparent md:px-0' : ''}`}>
+           <div className={`flex-1 flex items-center ${isSearchActive ? 'absolute inset-0 bg-white dark:bg-gray-800 px-4 z-20 md:static md:bg-transparent md:px-0 rounded-2xl' : ''}`}>
               
               {/* Mobile: Logo (Hidden if search active) */}
               {!isSearchActive && (
@@ -411,6 +423,15 @@ const App: React.FC = () => {
                   <Search className="w-5 h-5" />
               </button>
 
+              {/* Notifications */}
+              <NotificationsPopover 
+                  tasks={tasks}
+                  deals={deals}
+                  activities={activities}
+                  onNavigate={setActiveModule}
+                  onOpenTask={handleOpenTask}
+              />
+
               <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors">
                   {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
@@ -464,6 +485,8 @@ const App: React.FC = () => {
                 currentUser={currentUser}
                 team={team}
                 initialTab="TASKS"
+                initialTaskId={taskToOpen}
+                onTaskOpened={() => setTaskToOpen(null)}
            />} 
            {/* Tasks component handles both Projects and Tasks now, redirect PROJECTS to TASKS view */}
            {activeModule === ModuleType.PROJECTS && <Tasks 
@@ -508,8 +531,7 @@ const App: React.FC = () => {
                 currentUser={currentUser}
                 onUpdateTask={updateTask}
                 onNavigateToTask={(taskId) => {
-                    setActiveModule(ModuleType.TASKS);
-                    // In a real app we might scroll to task or filter by ID
+                    handleOpenTask(taskId);
                 }}
                 onEditTask={(task) => {
                     setActiveModule(ModuleType.TASKS);

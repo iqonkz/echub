@@ -1,4 +1,6 @@
 
+
+
 import React from 'react';
 import { Task, Deal, DealStage, TaskStatus, ModuleType, CrmActivity } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -23,6 +25,31 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, activities = [], on
   const importantTasks = tasks.filter(t => t.priority === 'Высокий' && t.status !== TaskStatus.DONE);
   const pendingActivities = activities.filter(a => a.status !== 'Выполнено').sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
+  // Dynamic Revenue Growth Calculation
+  const calculateGrowth = () => {
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      
+      const prevDate = new Date(currentYear, currentMonth - 1, 1);
+      const prevMonth = prevDate.getMonth();
+      const prevYear = prevDate.getFullYear();
+
+      const currentMonthRevenue = deals
+          .filter(d => d.stage === DealStage.WON && new Date(d.expectedClose).getMonth() === currentMonth && new Date(d.expectedClose).getFullYear() === currentYear)
+          .reduce((acc, d) => acc + d.value, 0);
+
+      const prevMonthRevenue = deals
+          .filter(d => d.stage === DealStage.WON && new Date(d.expectedClose).getMonth() === prevMonth && new Date(d.expectedClose).getFullYear() === prevYear)
+          .reduce((acc, d) => acc + d.value, 0);
+
+      if (prevMonthRevenue === 0) return currentMonthRevenue > 0 ? 100 : 0;
+      
+      return Math.round(((currentMonthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100);
+  };
+
+  const revenueGrowth = calculateGrowth();
+
   // Chart Data Preparation
   const dealStageData = Object.values(DealStage).map(stage => ({
     name: stage,
@@ -34,7 +61,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, activities = [], on
     value: tasks.filter(t => t.status === status).length
   }));
 
-  const StatCard = ({ title, value, icon: Icon, color, subtext }: any) => (
+  const StatCard = ({ title, value, icon: Icon, color, subtext, subtextClass }: any) => (
     <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none border border-gray-100 dark:border-gray-700/50 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group">
       <div className="flex items-center justify-between mb-2 md:mb-4">
         <div>
@@ -46,7 +73,9 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, activities = [], on
         </div>
       </div>
       <p className="text-[10px] md:text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1 truncate">
-         <span className="text-green-500 bg-green-50 dark:bg-green-900/20 px-1.5 md:px-2 py-0.5 rounded-md font-bold text-[9px] md:text-[10px]">{subtext.includes('+') ? '▲' : '●'}</span>
+         <span className={`px-1.5 md:px-2 py-0.5 rounded-md font-bold text-[9px] md:text-[10px] ${subtextClass || 'text-gray-500 bg-gray-100'}`}>
+             {subtext.includes('+') ? '▲' : subtext.includes('-') ? '▼' : '●'}
+         </span>
          {subtext}
       </p>
     </div>
@@ -71,7 +100,8 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, activities = [], on
           value={`₸${(totalRevenue / 1000000).toFixed(1)}М`} 
           icon={DollarSign} 
           color="bg-gradient-to-br from-green-500 to-green-600" 
-          subtext="+12%"
+          subtext={`${revenueGrowth > 0 ? '+' : ''}${revenueGrowth}%`}
+          subtextClass={revenueGrowth >= 0 ? "text-green-500 bg-green-50 dark:bg-green-900/20" : "text-red-500 bg-red-50 dark:bg-red-900/20"}
         />
         <StatCard 
           title="В воронке" 
@@ -79,6 +109,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, activities = [], on
           icon={Clock} 
           color="bg-gradient-to-br from-yellow-500 to-yellow-600" 
           subtext={`${deals.length} активных`}
+          subtextClass="text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20"
         />
         <StatCard 
           title="В работе" 
@@ -86,6 +117,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, activities = [], on
           icon={AlertCircle} 
           color="bg-gradient-to-br from-orange-500 to-orange-600" 
           subtext={`${importantTasks.length} важных`}
+          subtextClass="text-orange-600 bg-orange-50 dark:bg-orange-900/20"
         />
         <StatCard 
           title="Завершено" 
@@ -93,6 +125,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tasks, deals, activities = [], on
           icon={CheckCircle} 
           color="bg-gradient-to-br from-purple-500 to-purple-600" 
           subtext="В этом месяце"
+          subtextClass="text-purple-600 bg-purple-50 dark:bg-purple-900/20"
         />
       </div>
 

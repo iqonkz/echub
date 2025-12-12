@@ -43,7 +43,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeModule, onNavigate, onLogout, i
         className={`w-full flex items-center gap-3 py-3 text-sm font-bold rounded-2xl transition-all duration-200 group relative ${
           isActive
             ? getActiveStyle(item.id)
-            : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
+            : 'text-gray-500 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white hover:shadow-sm'
         } ${isCollapsed ? 'justify-center px-2' : 'px-4'}`}
         title={isCollapsed ? item.label : undefined}
       >
@@ -54,9 +54,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeModule, onNavigate, onLogout, i
   };
 
   return (
-    <aside className={`${isCollapsed ? 'w-20' : 'w-64'} bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-700 flex flex-col h-screen transition-all duration-300 fixed left-0 top-0 z-20 hidden md:flex shadow-[4px_0_24px_rgba(0,0,0,0.02)]`}>
+    <aside className={`${isCollapsed ? 'w-20' : 'w-56'} bg-gradient-to-b from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300 fixed hidden md:flex z-50 shadow-xl md:left-2 md:top-2 md:h-[calc(100vh-16px)] md:rounded-3xl`}>
       {/* Header aligned with main content header (h-16) */}
-      <div className="h-20 flex items-center justify-center px-4 overflow-hidden relative">
+      <div className="h-20 flex items-center justify-center px-4 overflow-hidden relative shrink-0">
         <div className="flex items-center justify-center w-full transition-all duration-300">
            {isCollapsed ? (
              // Collapsed Icon
@@ -103,16 +103,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activeModule, onNavigate, onLogout, i
         </div>
       </div>
 
-      <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto overflow-x-hidden">
+      <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto overflow-x-hidden custom-scrollbar">
         {navItems.map((item) => renderButton(item))}
       </nav>
 
       {/* Collapse Toggle & Settings */}
-      <div className="px-4 py-4 space-y-2">
+      <div className="px-4 py-4 space-y-2 shrink-0">
          {onToggle && (
             <button
                onClick={onToggle}
-               className={`w-full flex items-center gap-3 py-3 text-sm font-bold rounded-2xl transition-all duration-200 group relative text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white ${isCollapsed ? 'justify-center px-2' : 'px-4'}`}
+               className={`w-full flex items-center gap-3 py-3 text-sm font-bold rounded-2xl transition-all duration-200 group relative text-gray-500 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white hover:shadow-sm ${isCollapsed ? 'justify-center px-2' : 'px-4'}`}
                title={isCollapsed ? "Развернуть" : "Свернуть"}
             >
                <ChevronLeft className={`w-5 h-5 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`} />
